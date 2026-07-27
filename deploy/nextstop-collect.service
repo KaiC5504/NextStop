@@ -7,7 +7,11 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=%h/NextStop/collector
 EnvironmentFile=%h/NextStop/collector/.env
-ExecStart=%h/.local/bin/uv run nextstop collect-once --alerts
+# systemd gives services a minimal PATH, and uv lands in different places depending
+# on how it was installed (/usr/local/bin from the system installer, ~/.local/bin
+# from the user one), so search both rather than hardcoding either.
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin
+ExecStart=/usr/bin/env uv run nextstop collect-once --alerts
 
 # One pass takes about two seconds once the day's timetable is stored. If it is
 # still running after five minutes something is wrong and a stuck process must not

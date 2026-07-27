@@ -7,7 +7,8 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=%h/NextStop/collector
 EnvironmentFile=%h/NextStop/collector/.env
-ExecStart=%h/.local/bin/uv run nextstop build-timetable
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin
+ExecStart=/usr/bin/env uv run nextstop build-timetable
 
 # Parsing the bus bundle takes about 40 seconds and downloading it can take longer
 # on a slow link.
