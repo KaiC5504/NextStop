@@ -1,0 +1,31 @@
+# Secrets. Never committed, not even temporarily.
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+
+# Collected data — regenerate by running the collector, don't version it.
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+data/
+
+# Xcode project files are generated from project.yml on the Mac (brief §6).
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+.swiftpm/
+*.xcuserstate
+
+.DS_Store
+Thumbs.db
