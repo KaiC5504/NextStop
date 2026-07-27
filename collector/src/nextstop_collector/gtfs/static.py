@@ -24,8 +24,12 @@ from ..storage.db import session_scope
 from ..storage.models import ApiCallLog
 from ..timeutil import SYDNEY, now_utc, quota_day
 
-BASE_URL = "https://api.transport.nsw.gov.au/v1/gtfs/schedule/"
+BASE_URL_TEMPLATE = "https://api.transport.nsw.gov.au/{version}/gtfs/schedule/{feed}"
 PROVIDER = "tfnsw"
+
+
+def feed_url(feed: str, version: str) -> str:
+    return BASE_URL_TEMPLATE.format(version=version, feed=feed)
 
 # GTFS pickup_type / drop_off_type: 1 means the service does not pick up / set down.
 _NOT_AVAILABLE = "1"
@@ -44,6 +48,34 @@ class StopRow:
     parent_station: str
 
 
+# GTFS route_type, including the extended values TfNSW uses. Mapped onto the same
+# vocabulary as the Trip Planner's product classes so the two can be compared.
+ROUTE_TYPE_MODES: dict[int, str] = {
+    0: "Light Rail",
+    1: "Metro",
+    2: "Train",
+    3: "Bus",
+    4: "Ferry",
+    401: "Metro",
+    402: "Metro",
+    700: "Bus",
+    712: "School Bus",
+    900: "Light Rail",
+    1000: "Ferry",
+}
+
+
+def mode_for_route_type(raw: str) -> str:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return "Unknown"
+    if value in ROUTE_TYPE_MODES:
+        return ROUTE_TYPE_MODES[value]
+    # Extended route types are grouped in hundreds: 1xx rail, 7xx bus, 9xx tram.
+    return ROUTE_TYPE_MODES.get(value // 100 * 100, "Unknown")
+
+
 @dataclass(frozen=True)
 class ScheduledDeparture:
     feed: str
@@ -53,6 +85,7 @@ class ScheduledDeparture:
     headsign: str
     stop_id: str
     departure: datetime
+    mode: str = "Unknown"
 
 
 def gtfs_seconds(value: str) -> int | None:
@@ -141,6 +174,50 @@ class GtfsBundle:
             )
         return zipfile.ZipFile(self.path)
 
+    def calendar_range(self) -> tuple[date, date] | None:
+        """Earliest and latest service date the bundle's calendar covers."""
+        with self._open() as archive:
+            rows = _read_csv(archive, "calendar.txt")
+            starts = [r["start_date"] for r in rows if r.get("start_date")]
+            ends = [r["end_date"] for r in rows if r.get("end_date")]
+            if not starts or not ends:
+                dates = [r["date"] for r in _read_csv(archive, "calendar_dates.txt") if r.get("date")]
+                if not dates:
+                    return None
+                starts, ends = dates, dates
+        parse = lambda s: datetime.strptime(s, "%Y%m%d").date()  # noqa: E731
+        return parse(min(starts)), parse(max(ends))
+
+    def covers(self, service_day: date) -> bool:
+        """Whether this bundle can describe a given day at all.
+
+        An expired bundle does not fail loudly — it simply yields no active services,
+        so every departure goes unmatched and the comparison quietly measures nothing.
+        TfNSW served exactly this: v1/gtfs/schedule/metro still returns 200 with a
+        calendar that ran out in December 2024.
+        """
+        span = self.calendar_range()
+        return span is not None and span[0] <= service_day <= span[1]
+
+    def stops_under(self, parent_id: str) -> list[StopRow]:
+        """The station itself plus its platforms, via GTFS's own parent_station links.
+
+        TfNSW's Trip Planner stop IDs and GTFS `parent_station` values are the same
+        identifiers — Chatswood is 206710 in both — so this is an exact join rather
+        than a name-similarity guess, and it cannot silently pull in a different
+        station that happens to share a word.
+        """
+        with self._open() as archive:
+            return [
+                StopRow(
+                    stop_id=row.get("stop_id", ""),
+                    stop_name=row.get("stop_name", ""),
+                    parent_station=row.get("parent_station", ""),
+                )
+                for row in _stream_csv(archive, "stops.txt")
+                if row.get("stop_id") == parent_id or row.get("parent_station") == parent_id
+            ]
+
     def find_stops(self, fragment: str) -> list[StopRow]:
         needle = fragment.casefold()
         with self._open() as archive:
@@ -163,7 +240,10 @@ class GtfsBundle:
         with self._open() as archive:
             services = active_service_ids(archive, service_day)
             routes = {
-                row["route_id"]: row.get("route_short_name") or row.get("route_long_name") or ""
+                row["route_id"]: (
+                    row.get("route_short_name") or row.get("route_long_name") or "",
+                    mode_for_route_type(row.get("route_type", "")),
+                )
                 for row in _read_csv(archive, "routes.txt")
             }
             trips = {
@@ -186,15 +266,17 @@ class GtfsBundle:
                     continue
 
                 route_id, headsign = trip
+                route_name, mode = routes.get(route_id, ("", "Unknown"))
                 departures.append(
                     ScheduledDeparture(
                         feed=self.feed,
                         trip_id=row["trip_id"],
                         route_id=route_id,
-                        route_name=routes.get(route_id, ""),
+                        route_name=route_name,
                         headsign=headsign,
                         stop_id=row["stop_id"],
                         departure=absolute_departure(service_day, seconds),
+                        mode=mode,
                     )
                 )
 
@@ -212,7 +294,7 @@ def download_bundle(feed: str, settings: Settings | None = None) -> GtfsBundle:
     bundle = bundle_for(feed, settings)
     bundle.path.parent.mkdir(parents=True, exist_ok=True)
 
-    url = f"{BASE_URL}{feed}"
+    url = feed_url(feed, settings.feed_version(feed))
     headers = {"Authorization": f"apikey {settings.require_tfnsw_key()}"}
     started = time.monotonic()
     status: int | None = None

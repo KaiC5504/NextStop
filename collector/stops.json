@@ -1,0 +1,338 @@
+{
+  "chatswood": {
+    "label": "Chatswood Station",
+    "query": "Chatswood Station",
+    "trip_planner_id": "206710",
+    "trip_planner_name": "Chatswood Station",
+    "trip_planner_candidates": [
+      {
+        "id": "206710",
+        "name": "Chatswood Station",
+        "type": "stop",
+        "match_quality": 996,
+        "is_best": true
+      },
+      {
+        "id": "poiID:858313583:95362004:-1:Station Dental:Chatswood:Station Dental:ANY:POI:4887198:3747512:GDAV:nsw",
+        "name": "Station Dental",
+        "type": "poi",
+        "match_quality": 242,
+        "is_best": false
+      },
+      {
+        "id": "poiID:858280835:95362004:-1:Chatswood Police Station:Chatswood:Chatswood Police Station:ANY:POI:4887649:3747535:GDAV:nsw",
+        "name": "Chatswood Police Station",
+        "type": "poi",
+        "match_quality": 242,
+        "is_best": false
+      },
+      {
+        "id": "poiID:858310004:95362004:-1:Station Medical Clinic:Chatswood:Station Medical Clinic:ANY:POI:4887193:3747506:GDAV:nsw",
+        "name": "Station Medical Clinic",
+        "type": "poi",
+        "match_quality": 238,
+        "is_best": false
+      },
+      {
+        "id": "poiID:1000077:95362004:-1:Bike Lockers - Chatswood Station, Help St:Chatswood:Bike Lockers - Chatswood Station, Help St:ANY:POI:4887162:3747369:GDAV:nsw",
+        "name": "Bike Lockers - Chatswood Station, Help St",
+        "type": "poi",
+        "match_quality": 235,
+        "is_best": false
+      }
+    ],
+    "gtfs": {
+      "metro": {
+        "matched_by": "parent_station",
+        "stop_ids": [
+          "206710",
+          "2067142",
+          "2067143"
+        ],
+        "names": [
+          "Chatswood Station",
+          "Chatswood Station, Platform 2",
+          "Chatswood Station, Platform 3"
+        ]
+      },
+      "sydneytrains": {
+        "matched_by": "parent_station",
+        "stop_ids": [
+          "206710",
+          "2067141",
+          "2067144"
+        ],
+        "names": [
+          "Chatswood Station",
+          "Chatswood Station Platform 1",
+          "Chatswood Station Platform 4"
+        ]
+      },
+      "buses": {
+        "matched_by": "name",
+        "stop_ids": [
+          "206712",
+          "2067130",
+          "2067135",
+          "206714",
+          "206717",
+          "206718",
+          "206720",
+          "206722",
+          "206761"
+        ],
+        "names": [
+          "Chatswood Station, Railway St, Stand H",
+          "Chatswood Station, Railway St, Stand J",
+          "Chatswood Station, Stand A",
+          "Chatswood Station, Stand B",
+          "Chatswood Station, Stand C",
+          "Chatswood Station, Stand D",
+          "Chatswood Station, Victoria Ave, Stand E",
+          "Chatswood Station, Victoria Ave, Stand F",
+          "Chatswood Station, Victoria Ave, Stand G"
+        ]
+      }
+    }
+  },
+  "central": {
+    "label": "Central Station",
+    "query": "Central Station",
+    "trip_planner_id": "200060",
+    "trip_planner_name": "Central Station",
+    "trip_planner_candidates": [
+      {
+        "id": "200060",
+        "name": "Central Station",
+        "type": "stop",
+        "match_quality": 1000,
+        "is_best": true
+      },
+      {
+        "id": "G50001",
+        "name": "Adelaide Central Bus Station, Franklin St",
+        "type": "stop",
+        "match_quality": 980,
+        "is_best": false
+      },
+      {
+        "id": "poiID:858271813:95301001:-1:Central Station Hotel:Sydney:Central Station Hotel:ANY:POI:4889420:3756757:GDAV:nsw",
+        "name": "Central Station Hotel",
+        "type": "poi",
+        "match_quality": 243,
+        "is_best": false
+      },
+      {
+        "id": "streetID:1500000012::95384014:-1:Station St:Central Tilba:Station St::Station St: 2546:ANY:DIVA_STREET:4776024:4022999:GDAV:nsw:0",
+        "name": "Station St",
+        "type": "street",
+        "match_quality": 242,
+        "is_best": false
+      },
+      {
+        "id": "poiID:858291923:95384014:-1:Central Tilba Fire Station:Central Tilba:Central Tilba Fire Station:ANY:POI:4776412:4023551:GDAV:nsw",
+        "name": "Central Tilba Fire Station",
+        "type": "poi",
+        "match_quality": 239,
+        "is_best": false
+      }
+    ],
+    "gtfs": {
+      "metro": {
+        "matched_by": "parent_station",
+        "stop_ids": [
+          "2000466",
+          "2000467",
+          "200060"
+        ],
+        "names": [
+          "Central Station",
+          "Central Station, Platform 26",
+          "Central Station, Platform 27"
+        ]
+      },
+      "sydneytrains": {
+        "matched_by": "parent_station",
+        "stop_ids": [
+          "2000321",
+          "2000322",
+          "2000323",
+          "2000324",
+          "2000325",
+          "2000326",
+          "2000327",
+          "2000328",
+          "2000329",
+          "2000330",
+          "2000331",
+          "2000332",
+          "2000333",
+          "2000334",
+          "2000335",
+          "2000336",
+          "2000337",
+          "2000338",
+          "2000339",
+          "2000340",
+          "2000341",
+          "2000342",
+          "2000343",
+          "2000344",
+          "2000345",
+          "200060"
+        ],
+        "names": [
+          "Central Station",
+          "Central Station Platform 1",
+          "Central Station Platform 10",
+          "Central Station Platform 11",
+          "Central Station Platform 12",
+          "Central Station Platform 13",
+          "Central Station Platform 14",
+          "Central Station Platform 15",
+          "Central Station Platform 16",
+          "Central Station Platform 17",
+          "Central Station Platform 18",
+          "Central Station Platform 19"
+        ]
+      },
+      "buses": {
+        "matched_by": "name",
+        "stop_ids": [
+          "200017",
+          "200039",
+          "200053",
+          "200054",
+          "200062",
+          "200063",
+          "200064",
+          "200819",
+          "201016",
+          "201039",
+          "201080"
+        ],
+        "names": [
+          "Central Station, Chalmers St, Stand G",
+          "Central Station, Eddy Ave, Stand A",
+          "Central Station, Eddy Ave, Stand C",
+          "Central Station, Eddy Ave, Stand D",
+          "Central Station, Elizabeth St, Stand E",
+          "Central Station, Foveaux St, Stand F",
+          "Central Station, Railway Square, Stand J",
+          "Central Station, Railway Square, Stand K",
+          "Central Station, Railway Square, Stand L",
+          "Central Station, Railway Square, Stand M",
+          "Central Station, Railway Square, Stand N"
+        ]
+      }
+    }
+  },
+  "railway-square": {
+    "label": "Railway Square (bus to USyd)",
+    "query": "Railway Square",
+    "trip_planner_id": "200812",
+    "trip_planner_name": "Railway Square",
+    "trip_planner_candidates": [
+      {
+        "id": "200812",
+        "name": "Railway Square",
+        "type": "stop",
+        "match_quality": 996,
+        "is_best": true
+      },
+      {
+        "id": "streetID:1500000008::95367074:-1:Railway Sq:Wyong:Railway Sq::Railway Sq: 2259:ANY:DIVA_STREET:4912158:3691786:GDAV:nsw:0",
+        "name": "Railway Sq",
+        "type": "street",
+        "match_quality": 250,
+        "is_best": false
+      },
+      {
+        "id": "streetID:1500000115::95917007:-1:Railway Sq:Junee:Railway Sq::Railway Sq: 2663:ANY:DIVA_STREET:4553401:3858808:GDAV:nsw:0",
+        "name": "Railway Sq",
+        "type": "street",
+        "match_quality": 250,
+        "is_best": false
+      },
+      {
+        "id": "streetID:1500000036::95301008:-1:Railway Square Sbwy:Chippendale:Railway Square Sbwy::Railway Square Sbwy: 2008:ANY:DIVA_STREET:4888831:3757250:GDAV:nsw:0",
+        "name": "Railway Square Sbwy",
+        "type": "street",
+        "match_quality": 243,
+        "is_best": false
+      },
+      {
+        "id": "streetID:1500000109::95366063:-1:Railway Station Sq:Wollongong:Railway Station Sq::Railway Station Sq: 2500:ANY:DIVA_STREET:4857281:3816404:GDAV:nsw:0",
+        "name": "Railway Station Sq",
+        "type": "street",
+        "match_quality": 241,
+        "is_best": false
+      }
+    ],
+    "gtfs": {
+      "metro": {
+        "matched_by": "none",
+        "stop_ids": [],
+        "names": []
+      },
+      "sydneytrains": {
+        "matched_by": "none",
+        "stop_ids": [],
+        "names": []
+      },
+      "buses": {
+        "matched_by": "name",
+        "stop_ids": [
+          "200017",
+          "200062",
+          "200063",
+          "200064",
+          "200819"
+        ],
+        "names": [
+          "Central Station, Railway Square, Stand J",
+          "Central Station, Railway Square, Stand K",
+          "Central Station, Railway Square, Stand L",
+          "Central Station, Railway Square, Stand M",
+          "Central Station, Railway Square, Stand N"
+        ]
+      }
+    }
+  },
+  "usyd-city-rd": {
+    "label": "University of Sydney, City Rd",
+    "query": "University of Sydney, City Rd",
+    "trip_planner_id": "G200817",
+    "trip_planner_name": "University of Sydney, City Rd",
+    "trip_planner_candidates": [
+      {
+        "id": "G200817",
+        "name": "University of Sydney, City Rd",
+        "type": "stop",
+        "match_quality": 250,
+        "is_best": true
+      }
+    ],
+    "gtfs": {
+      "metro": {
+        "matched_by": "none",
+        "stop_ids": [],
+        "names": []
+      },
+      "sydneytrains": {
+        "matched_by": "none",
+        "stop_ids": [],
+        "names": []
+      },
+      "buses": {
+        "matched_by": "id_without_prefix",
+        "stop_ids": [
+          "200817"
+        ],
+        "names": [
+          "University of Sydney, City Rd"
+        ]
+      }
+    }
+  }
+}

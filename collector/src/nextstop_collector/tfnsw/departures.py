@@ -96,13 +96,34 @@ def match_scheduled(
 ) -> ScheduledDeparture | None:
     """Find the timetabled departure this event corresponds to.
 
-    Matches on planned time rather than route name, because the API's route strings and
+    Time is the primary key rather than route name, because the API's route strings and
     GTFS `route_short_name` come from different systems and often disagree in wording.
     Route and headsign only break ties between services leaving at the same minute.
+
+    Mode is a hard filter, not a tiebreak. Interchanges like Chatswood have a bus stand
+    a few metres from the platforms, and without this a bus leaving at 23:45 happily
+    matches an unrelated train timetabled for 23:44 and produces a fabricated delay.
     """
     candidates = [
-        s for s in scheduled if abs(s.departure - event.planned) <= tolerance
+        s
+        for s in scheduled
+        if abs(s.departure - event.planned) <= tolerance and _modes_compatible(event.mode, s.mode)
     ]
     if not candidates:
         return None
     return max(candidates, key=lambda c: _similarity(event, c))
+
+
+def _modes_compatible(event_mode: str, scheduled_mode: str) -> bool:
+    """Whether two mode labels can describe the same service.
+
+    Unknown on either side is treated as incompatible: a missing label is not evidence
+    of a match, and a wrong match is worse here than no match at all.
+    """
+    if event_mode == "Unknown" or scheduled_mode == "Unknown":
+        return False
+    if event_mode == scheduled_mode:
+        return True
+    # The two systems disagree on whether school services are their own mode.
+    bus_like = {"Bus", "School Bus"}
+    return event_mode in bus_like and scheduled_mode in bus_like

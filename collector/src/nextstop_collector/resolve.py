@@ -31,21 +31,55 @@ class ResolvedStop:
         return {sid for ids in self.gtfs_stop_ids.values() for sid in ids}
 
 
+def _match_gtfs_stops(
+    bundle: GtfsBundle, trip_planner_id: str | None, query: str
+) -> tuple[list, str]:
+    """Find a stop's GTFS rows, preferring exact identifier joins over name similarity.
+
+    Rail feeds link platforms to a station with `parent_station`, and that value is the
+    same identifier the Trip Planner uses. The bus feed populates `parent_station` on
+    none of its 37,756 stops, so buses fall back to the bare stop ID — which the Trip
+    Planner prefixes with `G` and GTFS does not.
+
+    The name fallback matches the *whole* query rather than the part before the first
+    comma. "University of Sydney" alone pulls in Parramatta Rd and the Footbridge stops
+    as well as City Rd, and once unrelated stops are in the candidate pool a bus can
+    match a service that never called at the stop being sampled.
+    """
+    if not trip_planner_id:
+        return [], "none"
+
+    rows = bundle.stops_under(trip_planner_id)
+    if rows:
+        return rows, "parent_station"
+
+    if trip_planner_id.startswith("G"):
+        rows = bundle.stops_under(trip_planner_id[1:])
+        if rows:
+            return rows, "id_without_prefix"
+
+    rows = bundle.find_stops(query)
+    return (rows, "name") if rows else ([], "none")
+
+
 def resolve_all(client: TfnswClient, bundles: dict[str, GtfsBundle]) -> dict[str, Any]:
     resolved: dict[str, Any] = {}
     for stop in WATCHED:
         candidates = find_candidates(client, stop.query)
+        trip_planner_id = candidates[0]["id"] if candidates else None
+
         gtfs: dict[str, Any] = {}
         for feed, bundle in bundles.items():
-            rows = bundle.find_stops(stop.query.replace(" Station", ""))
+            rows, matched_by = _match_gtfs_stops(bundle, trip_planner_id, stop.query)
             gtfs[feed] = {
+                "matched_by": matched_by,
                 "stop_ids": sorted({r.stop_id for r in rows}),
                 "names": sorted({r.stop_name for r in rows})[:12],
             }
         resolved[stop.key] = {
             "label": stop.label,
             "query": stop.query,
-            "trip_planner_id": candidates[0]["id"] if candidates else None,
+            "trip_planner_id": trip_planner_id,
             "trip_planner_name": candidates[0]["name"] if candidates else None,
             "trip_planner_candidates": candidates[:5],
             "gtfs": gtfs,

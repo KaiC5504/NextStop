@@ -3,7 +3,12 @@
 Answers the question Phase 0 exists to answer: **does the published timetable alone
 tell you when your train actually leaves?**
 
-Every 15 minutes across the Chatswood commute window it records, for each watched stop:
+Watched stops are the ones the real journey uses — home (Chatswood) to
+University of Sydney: Metro M1 from **Chatswood** to **Central Platform 27**, then bus
+412/423/430 from **Railway Square** to **University of Sydney, City Rd**. Verified
+against a live trip plan, not assumed.
+
+Every 15 minutes across that commute window it records, for each watched stop:
 
 - the **scheduled** departure time, from the static GTFS bundle — what a naive
   timetable app would display
@@ -34,15 +39,28 @@ opendata.transport.nsw.gov.au → Applications → Create Application. Subscribe
 ## First run
 
 ```bash
-uv run nextstop gtfs-refresh     # downloads the metro and sydneytrains bundles
+uv run nextstop gtfs-refresh     # metro, sydneytrains and buses (~110 MB total)
 uv run nextstop resolve-stops    # then READ the table it prints
 ```
 
+`gtfs-refresh` prints each bundle's calendar span and flags any that do not cover today.
+That check is not decorative: `v1/gtfs/schedule/metro` still returns HTTP 200 but its
+calendar expired in December 2024 and it omits every City & Southwest station, so it
+would yield zero scheduled departures for the whole corridor without raising an error.
+Metro is pinned to **v2** in `Settings.gtfs_feed_versions` for this reason.
+
 `resolve-stops` maps each watched stop to a Trip Planner ID *and* a set of GTFS
-`stop_id` values. These come from two different systems and are not assumed to match,
-which is why both are written to `stops.json` for you to check. A wrong match here
-silently poisons every later sample — if the collector later reports departures but
-zero timetable matches, this file is the first place to look.
+`stop_id` values, preferring exact identifier joins:
+
+1. `parent_station` — rail feeds link platforms to a station using the same identifier
+   the Trip Planner uses, so this is exact
+2. the bare stop ID with any `G` prefix stripped — the bus feed populates
+   `parent_station` on none of its 37,756 stops, and the Trip Planner writes bus stops
+   as `G200817` where GTFS writes `200817`
+3. a full-name match, flagged in yellow because it is a guess
+
+A wrong match here silently poisons every later sample. If the collector reports
+departures but few timetable matches, this file is the first place to look.
 
 ```bash
 uv run nextstop collect-once --raw

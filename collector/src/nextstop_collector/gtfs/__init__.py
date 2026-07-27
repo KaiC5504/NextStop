@@ -7,6 +7,7 @@ from .static import (
     bundle_for,
     download_bundle,
     ensure_bundle,
+    feed_url,
     gtfs_seconds,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "bundle_for",
     "download_bundle",
     "ensure_bundle",
+    "feed_url",
     "gtfs_seconds",
 ]

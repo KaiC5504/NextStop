@@ -100,10 +100,31 @@ but Phase 0 uses it as the naive baseline: the published timetable, which is wha
 app without realtime would show. Bundles are large, so `stop_times.txt` is streamed and
 filtered rather than loaded, and parsed timetables are cached per service day.
 
-One trap worth knowing: GTFS times can exceed 24:00:00 for after-midnight services, and
-the spec defines its clock as "noon minus 12 hours" on the service date specifically so
-that daylight-saving days still have 24 nominal hours. Anchoring at midnight instead
-shifts every departure by an hour on the two transition days a year.
+Three traps, all found the hard way on 2026-07-27:
+
+1. **Feeds sit on different API versions and the stale one still returns 200.**
+`v1/gtfs/schedule/metro` answers normally but its calendar expired 2024-12-26 and it
+carries only the 13 Metro North West stations — no Central, Gadigal, Martin Place or
+Sydenham. Using it would have yielded zero scheduled departures for the entire
+Chatswood-to-city corridor with no error, silently measuring nothing. Metro must be
+**v2**; sydneytrains and buses are **v1** (there is no v2 — it 404s). The collector now
+refuses to be quiet about this: `gtfs-refresh` prints each bundle's calendar span and
+flags any that do not cover today.
+
+2. **GTFS times can exceed 24:00:00** for after-midnight services, and the spec defines
+its clock as "noon minus 12 hours" on the service date specifically so daylight-saving
+days still have 24 nominal hours. Anchoring at midnight instead shifts every departure
+by an hour on the two transition days a year.
+
+3. **The bus feed populates `parent_station` on none of its 37,756 stops.** Rail feeds
+do, and that value is the same identifier the Trip Planner uses (Chatswood is `206710`
+in both), which makes the rail join exact. Buses need the bare stop ID instead — the
+Trip Planner prefixes bus stops with `G` (`G200817`) where GTFS does not (`200817`).
+
+Validation that the joins are right: across 139 matched departures, **zero** differed by
+more than 60 seconds between the Trip Planner's own `departureTimePlanned` and the
+static timetable. That agreement is what makes the schedule-vs-realtime delta
+trustworthy.
 
 ### Service alerts
 
@@ -343,8 +364,18 @@ That delta is the thesis: the gap a naive GTFS consumer misses and the Trip Plan
 catches. Structurally the same gap as Google vs Opal Travel, with no licensing
 entanglement and fully publishable.
 
-**Built, not yet run.** See `collector/` — Python, `uv run nextstop`, 83 tests passing
-offline. **Zero data collected so far**; blocked entirely on a TfNSW API key.
+**Built and proven end to end; sustained collection not yet started.** See `collector/`
+— Python, `uv run nextstop`, 103 tests passing offline. One live sampling pass on
+2026-07-27 returned 160 departures, 139 matched to the timetable. That is a smoke test,
+not a dataset.
+
+**Watched stops, verified against a live trip plan** for home (Chatswood) →
+University of Sydney rather than assumed: walk to Chatswood, Metro M1 to **Central
+Platform 27**, walk to **Railway Square**, bus 412/423/430 to campus. An earlier guess
+had included Redfern; the planner never routes through it for this journey, so it was
+dropped. The bus leg is deliberately included despite the 99 MB bundle — Metro runs
+close to timetable, so buses are where the published schedule is most likely to be
+wrong, which is the whole point.
 
 Two measures are recorded rather than one, because they fail differently. `api_delay`
 (realtime minus planned, both from one Trip Planner response) is always available and

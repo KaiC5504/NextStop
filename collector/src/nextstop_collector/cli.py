@@ -59,15 +59,37 @@ def gtfs_refresh_command(
     settings = get_settings()
     feeds = list(settings.gtfs_feeds) if feed == "all" else [feed]
 
+    today = now_sydney().date()
+    stale: list[str] = []
+
     table = Table(title="GTFS bundles")
     table.add_column("Feed")
+    table.add_column("API", justify="center")
     table.add_column("Size", justify="right")
-    table.add_column("Age", justify="right")
+    table.add_column("Timetable covers")
+    table.add_column("Today")
     for name in feeds:
         bundle = ensure_bundle(name, force=force)
-        size = bundle.path.stat().st_size / 1e6
-        table.add_row(name, f"{size:.1f} MB", f"{bundle.age_hours():.1f} h")
+        span = bundle.calendar_range()
+        covers = bundle.covers(today)
+        if not covers:
+            stale.append(name)
+        table.add_row(
+            name,
+            settings.feed_version(name),
+            f"{bundle.path.stat().st_size / 1e6:.1f} MB",
+            f"{span[0]} to {span[1]}" if span else "[red]no calendar[/]",
+            "[green]yes[/]" if covers else "[red]NO[/]",
+        )
     console.print(table)
+
+    if stale:
+        console.print(
+            f"\n[red]{', '.join(stale)} does not cover today.[/] An expired bundle returns no "
+            "active services rather than an error, so every departure would go unmatched and "
+            "the comparison would silently measure nothing. Check the feed's API version in "
+            "Settings.gtfs_feed_versions before collecting."
+        )
 
 
 @app.command("resolve-stops")
@@ -87,17 +109,30 @@ def resolve_stops_command(
     table.add_column("Trip Planner ID")
     table.add_column("Matched name")
     table.add_column("GTFS stop IDs", justify="right")
+    name_matched: list[str] = []
     for key, entry in resolved.items():
-        counts = ", ".join(
-            f"{feed}:{len(data['stop_ids'])}" for feed, data in entry["gtfs"].items()
-        )
+        parts = []
+        for feed, data in entry["gtfs"].items():
+            count = len(data["stop_ids"])
+            if data["matched_by"] == "name" and count:
+                name_matched.append(f"{key}/{feed}")
+                parts.append(f"[yellow]{feed}:{count}?[/]")
+            elif count:
+                parts.append(f"{feed}:{count}")
         table.add_row(
             key,
             entry["trip_planner_id"] or "[red]none[/]",
             entry["trip_planner_name"] or "-",
-            counts or "-",
+            ", ".join(parts) or "-",
         )
     console.print(table)
+
+    if name_matched:
+        console.print(
+            f"\n[yellow]Matched by name, not by parent_station: {', '.join(name_matched)}.[/] "
+            "The exact identifier join failed for these, so the GTFS stop IDs are a guess "
+            "and may pull in a different stop. Check their names in the file."
+        )
     console.print(
         f"\nWritten to [bold]{output}[/]. A wrong match here poisons every later sample, "
         "so check the names in the file before starting a collection run."

@@ -16,10 +16,15 @@ class WatchedStop:
     query: str
 
 
+# Verified against a live trip plan for home (Chatswood) -> University of
+# Sydney: walk to Chatswood, Metro M1 to Central Platform 27, walk to Railway Square,
+# bus 412/423/430 to campus. Redfern is deliberately absent — the planner never routes
+# through it for this journey, which an earlier guess had assumed it would.
 WATCHED: tuple[WatchedStop, ...] = (
     WatchedStop("chatswood", "Chatswood Station", "Chatswood Station"),
     WatchedStop("central", "Central Station", "Central Station"),
-    WatchedStop("redfern", "Redfern Station", "Redfern Station"),
+    WatchedStop("railway-square", "Railway Square (bus to USyd)", "Railway Square"),
+    WatchedStop("usyd-city-rd", "University of Sydney, City Rd", "University of Sydney, City Rd"),
 )
 
 BY_KEY: dict[str, WatchedStop] = {s.key: s for s in WATCHED}

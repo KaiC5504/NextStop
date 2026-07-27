@@ -20,6 +20,11 @@ build/
 *.sqlite3
 data/
 
+# Downloaded GTFS bundles (~110 MB). Re-fetch with `nextstop gtfs-refresh`.
+# stops.json is NOT ignored: it is small, hand-checked, and a diff in it means
+# TfNSW renumbered something, which is worth seeing.
+gtfs_cache/
+
 # Xcode project files are generated from project.yml on the Mac (brief §6).
 *.xcodeproj
 *.xcworkspace

@@ -17,7 +17,7 @@ from .storage.models import DepartureSample, ServiceAlert
 from .tfnsw import trip as tfnsw_trip
 from .tfnsw.client import TfnswClient
 from .tfnsw.departures import DepartureEvent, match_scheduled, parse_departure_response
-from .timeutil import now_utc, quota_day, to_sydney
+from .timeutil import now_sydney, now_utc, quota_day, to_sydney
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +54,27 @@ class ScheduleCache:
             if bundle is None or not stop_ids:
                 self._cache[key] = []
             else:
+                if not bundle.covers(service_day):
+                    # An out-of-date bundle yields no active services rather than an
+                    # error, so without this the comparison silently measures nothing.
+                    # Only today matters: bundles are rolling windows starting today,
+                    # so the previous service day is routinely outside them and warning
+                    # about it every poll would bury the case that actually matters.
+                    if service_day >= now_sydney().date():
+                        log.error(
+                            "%s bundle does not cover %s (calendar %s) — every departure "
+                            "will go unmatched. Run `nextstop gtfs-refresh --force`.",
+                            feed,
+                            service_day,
+                            bundle.calendar_range(),
+                        )
+                    else:
+                        log.debug(
+                            "%s bundle does not cover previous service day %s; "
+                            "after-midnight services from that day cannot be matched",
+                            feed,
+                            service_day,
+                        )
                 self._cache[key] = bundle.scheduled_departures(stop_ids, service_day)
                 log.debug(
                     "cached %d scheduled departures for %s on %s",

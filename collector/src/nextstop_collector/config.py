@@ -16,12 +16,25 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///nextstop.db"
 
-    # Static GTFS bundles to compare against. These are the modes the Chatswood
-    # corridor runs on; buses is deliberately excluded because the bundle is enormous
-    # and the corridor is rail.
-    gtfs_feeds: tuple[str, ...] = ("metro", "sydneytrains")
+    # Static GTFS bundles to compare against — the modes the Chatswood-to-USyd trip
+    # actually uses. buses is ~99 MB and slow to parse, but the bus leg is where the
+    # published timetable is most likely to be wrong, so excluding it would drop the
+    # most interesting half of the result.
+    gtfs_feeds: tuple[str, ...] = ("metro", "sydneytrains", "buses")
+
+    # Feeds sit on different API versions and it is not cosmetic. Metro moved to v2
+    # when the City & Southwest section opened; v1/gtfs/schedule/metro still answers
+    # 200 but its calendar expired 2024-12-26 and it carries only the 13 North West
+    # stations, so it would silently yield zero scheduled departures for the whole
+    # Chatswood-to-city corridor. sydneytrains has no v2 — it 404s.
+    gtfs_feed_versions: dict[str, str] = {"metro": "v2"}
+    gtfs_default_version: str = "v1"
+
     gtfs_cache_dir: Path = Path("gtfs_cache")
     gtfs_max_age_hours: int = 24 * 7
+
+    def feed_version(self, feed: str) -> str:
+        return self.gtfs_feed_versions.get(feed, self.gtfs_default_version)
 
     # Bronze plan: 60,000 calls/day, 5 calls/second.
     daily_quota: int = 60_000

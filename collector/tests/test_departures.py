@@ -37,7 +37,29 @@ PAYLOAD = {
 }
 
 
-def scheduled(minute: int, route: str = "M1", headsign: str = "Sydenham", trip: str = "t1"):
+BUS_PAYLOAD = {
+    "stopEvents": [
+        {
+            "location": {"id": "206710", "disassembledName": "Chatswood, Stand D"},
+            "departureTimePlanned": "2026-07-27T09:03:00Z",
+            "departureTimeEstimated": "2026-07-27T09:09:00Z",
+            "transportation": {
+                "number": "257",
+                "product": {"class": 5},
+                "destination": {"name": "Balmoral"},
+            },
+        }
+    ]
+}
+
+
+def scheduled(
+    minute: int,
+    route: str = "M1",
+    headsign: str = "Sydenham",
+    trip: str = "t1",
+    mode: str = "Metro",
+):
     return ScheduledDeparture(
         feed="metro",
         trip_id=trip,
@@ -46,6 +68,7 @@ def scheduled(minute: int, route: str = "M1", headsign: str = "Sydenham", trip: 
         headsign=headsign,
         stop_id="2067",
         departure=datetime(2026, 7, 27, 9, minute, tzinfo=timezone.utc),
+        mode=mode,
     )
 
 
@@ -113,3 +136,41 @@ class TestMatching:
     def test_empty_timetable_returns_none(self):
         event = parse_departure_response(PAYLOAD)[0]
         assert match_scheduled(event, []) is None
+
+
+class TestModeIsAHardFilter:
+    """Interchanges put a bus stand metres from the platforms.
+
+    Without a mode filter a bus leaving at 09:03 matches a train timetabled for 09:03
+    and fabricates a delay. This was observed live at Chatswood, where 8 of 40 sampled
+    bus departures falsely matched rail services.
+    """
+
+    def test_bus_does_not_match_a_simultaneous_train(self):
+        bus = parse_departure_response(BUS_PAYLOAD)[0]
+        assert bus.mode == "Bus"
+        assert match_scheduled(bus, [scheduled(3, mode="Train")]) is None
+
+    def test_bus_does_not_match_a_simultaneous_metro(self):
+        bus = parse_departure_response(BUS_PAYLOAD)[0]
+        assert match_scheduled(bus, [scheduled(3, mode="Metro")]) is None
+
+    def test_bus_matches_a_bus(self):
+        bus = parse_departure_response(BUS_PAYLOAD)[0]
+        match = match_scheduled(bus, [scheduled(3, route="257", mode="Bus", trip="b1")])
+        assert match is not None and match.trip_id == "b1"
+
+    def test_school_bus_and_bus_are_interchangeable(self):
+        bus = parse_departure_response(BUS_PAYLOAD)[0]
+        assert match_scheduled(bus, [scheduled(3, mode="School Bus", trip="sb")]) is not None
+
+    def test_unknown_mode_never_matches(self):
+        """A missing label is not evidence of a match."""
+        event = parse_departure_response(PAYLOAD)[0]
+        assert match_scheduled(event, [scheduled(3, mode="Unknown")]) is None
+
+    def test_correct_mode_still_wins_over_a_closer_wrong_mode(self):
+        event = parse_departure_response(PAYLOAD)[0]
+        near_wrong = scheduled(3, mode="Bus", trip="wrong")
+        exact_right = scheduled(3, mode="Metro", trip="right")
+        assert match_scheduled(event, [near_wrong, exact_right]).trip_id == "right"
