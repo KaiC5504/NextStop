@@ -1,0 +1,14 @@
+[Unit]
+Description=Keep the stored timetable current
+
+[Timer]
+# Hourly rather than daily, and deliberately not pinned to a clock time. A build is
+# a no-op once the service day is already stored, so this costs about a second and
+# needs no timezone configuration on the host — which matters because the quota day
+# and the commute window are Sydney-local while the box is not.
+OnCalendar=hourly
+Persistent=true
+AccuracySec=1m
+
+[Install]
+WantedBy=timers.target

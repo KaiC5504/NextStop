@@ -107,6 +107,52 @@ class DepartureSample(Base):
 Index("ix_sample_stop_planned", DepartureSample.stop_key, DepartureSample.planned_departure)
 
 
+class TimetableBuild(Base):
+    """Records that a feed's timetable for one service day has been parsed into the DB.
+
+    Parsing the 99 MB bus bundle takes about 150 seconds. Keeping the result only in
+    memory forced the collector to be a long-running process, because any scheduled
+    task would have paid that cost on every single run.
+    """
+
+    __tablename__ = "timetable_build"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    feed: Mapped[str] = mapped_column(String(32), index=True)
+    service_day: Mapped[date] = mapped_column(Date, index=True)
+    built_at: Mapped[datetime] = mapped_column(UtcDateTime)
+    entry_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Size and mtime of the bundle this was parsed from. A refreshed bundle changes
+    # the fingerprint, which invalidates the build rather than serving a stale
+    # timetable that looks perfectly valid.
+    bundle_fingerprint: Mapped[str] = mapped_column(String(64))
+    stop_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+
+
+Index("ix_build_feed_day", TimetableBuild.feed, TimetableBuild.service_day, unique=True)
+
+
+class TimetableEntry(Base):
+    """A timetabled departure, parsed once and reused across processes."""
+
+    __tablename__ = "timetable_entry"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    feed: Mapped[str] = mapped_column(String(32))
+    service_day: Mapped[date] = mapped_column(Date)
+    stop_id: Mapped[str] = mapped_column(String(64))
+    trip_id: Mapped[str] = mapped_column(String(64))
+    route_id: Mapped[str] = mapped_column(String(64), default="")
+    route_name: Mapped[str] = mapped_column(String(128), default="")
+    headsign: Mapped[str] = mapped_column(String(128), default="")
+    mode: Mapped[str] = mapped_column(String(32), default="Unknown")
+    departure: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
+
+
+Index("ix_entry_lookup", TimetableEntry.feed, TimetableEntry.service_day, TimetableEntry.stop_id)
+
+
 class Observation(Base):
     """Ground truth from an iOS Shortcut: what actually happened.
 

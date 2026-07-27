@@ -1,0 +1,12 @@
+[Unit]
+Description=Sample departures every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15
+# Fire immediately if the box was off when a run was due, so a reboot does not
+# silently leave a hole in the data.
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

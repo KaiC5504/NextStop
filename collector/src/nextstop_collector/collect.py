@@ -10,6 +10,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
+from . import timetable
 from .gtfs.static import GtfsBundle, ScheduledDeparture
 from .resolve import ResolvedStop
 from .storage.db import session_scope
@@ -35,25 +36,27 @@ class StopResult:
         return self.error is None
 
 
-class ScheduleCache:
-    """Memoises parsed timetables.
+class Timetables:
+    """Access to the published timetable, parsed once per service day into the database.
 
-    Streaming stop_times.txt costs seconds on the larger bundles, and the timetable for
-    a given service day does not change between polls, so parsing it once per day per
-    feed rather than once every fifteen minutes matters.
+    Parsing lives in `timetable.py` rather than here precisely so it does not have to
+    happen in this process. A scheduled task, a systemd timer and a long-running loop
+    all get the same one-second startup after the first build of the day.
     """
 
-    def __init__(self, bundles: dict[str, GtfsBundle]) -> None:
+    def __init__(self, bundles: dict[str, GtfsBundle], stops: dict[str, ResolvedStop]) -> None:
         self.bundles = bundles
-        self._cache: dict[tuple[str, date, frozenset[str]], list[ScheduledDeparture]] = {}
+        self._feed_stop_ids: dict[str, set[str]] = {}
+        for stop in stops.values():
+            for feed, ids in stop.gtfs_stop_ids.items():
+                self._feed_stop_ids.setdefault(feed, set()).update(ids)
+        self._memo: dict[tuple[str, date, frozenset[str]], list[ScheduledDeparture]] = {}
 
-    def get(self, feed: str, stop_ids: set[str], service_day: date) -> list[ScheduledDeparture]:
-        key = (feed, service_day, frozenset(stop_ids))
-        if key not in self._cache:
-            bundle = self.bundles.get(feed)
-            if bundle is None or not stop_ids:
-                self._cache[key] = []
-            else:
+    def ensure(self, service_days: list[date]) -> None:
+        """Build any timetable not already stored. The slow path, at most once a day."""
+        for feed, bundle in self.bundles.items():
+            stop_ids = self._feed_stop_ids.get(feed, set())
+            for service_day in service_days:
                 if not bundle.covers(service_day):
                     # An out-of-date bundle yields no active services rather than an
                     # error, so without this the comparison silently measures nothing.
@@ -68,31 +71,22 @@ class ScheduleCache:
                             service_day,
                             bundle.calendar_range(),
                         )
-                    else:
-                        log.debug(
-                            "%s bundle does not cover previous service day %s; "
-                            "after-midnight services from that day cannot be matched",
-                            feed,
-                            service_day,
-                        )
-                self._cache[key] = bundle.scheduled_departures(stop_ids, service_day)
-                log.debug(
-                    "cached %d scheduled departures for %s on %s",
-                    len(self._cache[key]),
-                    feed,
-                    service_day,
-                )
-        return self._cache[key]
+                    continue
+                if timetable.ensure_built(bundle, service_day, stop_ids):
+                    self._memo.clear()
 
     def for_stop(self, stop: ResolvedStop, service_days: list[date]) -> list[ScheduledDeparture]:
         combined: list[ScheduledDeparture] = []
         for feed, stop_ids in stop.gtfs_stop_ids.items():
             for service_day in service_days:
-                combined.extend(self.get(feed, stop_ids, service_day))
+                key = (feed, service_day, frozenset(stop_ids))
+                if key not in self._memo:
+                    self._memo[key] = timetable.scheduled_for(feed, stop_ids, service_day)
+                combined.extend(self._memo[key])
         return combined
 
     def clear(self) -> None:
-        self._cache.clear()
+        self._memo.clear()
 
 
 def service_days_for(moment: datetime) -> list[date]:
@@ -142,7 +136,7 @@ def _sample_from(
 def collect_stop(
     client: TfnswClient,
     stop: ResolvedStop,
-    cache: ScheduleCache,
+    timetables: Timetables,
     when: datetime,
 ) -> StopResult:
     try:
@@ -152,7 +146,7 @@ def collect_stop(
         return StopResult(stop.key, error=str(exc))
 
     events = parse_departure_response(raw)
-    scheduled = cache.for_stop(stop, service_days_for(when))
+    scheduled = timetables.for_stop(stop, service_days_for(when))
     polled_at = now_utc()
 
     result = StopResult(stop.key, events=len(events))
@@ -195,14 +189,15 @@ def collect_service_alerts(client: TfnswClient, when: datetime) -> int:
 
 def collect_once(
     stops: dict[str, ResolvedStop],
-    cache: ScheduleCache,
+    timetables: Timetables,
     when: datetime,
     include_alerts: bool = False,
 ) -> list[StopResult]:
+    timetables.ensure(service_days_for(when))
     results: list[StopResult] = []
     with TfnswClient() as client:
         for stop in stops.values():
-            results.append(collect_stop(client, stop, cache, when))
+            results.append(collect_stop(client, stop, timetables, when))
         if include_alerts:
             log.info("stored %d service alerts", collect_service_alerts(client, when))
     return results

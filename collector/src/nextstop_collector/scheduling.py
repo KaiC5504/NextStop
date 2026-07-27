@@ -13,7 +13,7 @@ import threading
 import time
 from datetime import date, datetime
 
-from .collect import ScheduleCache, StopResult, collect_once
+from .collect import StopResult, Timetables, collect_once
 from .gtfs.static import ensure_bundle
 from .config import get_settings
 from .resolve import ResolvedStop
@@ -45,7 +45,7 @@ def interval_for(moment: datetime) -> int:
 
 def run(
     stops: dict[str, ResolvedStop],
-    cache: ScheduleCache,
+    timetables: Timetables,
     stop_event: threading.Event | None = None,
 ) -> None:
     stop_event = stop_event or threading.Event()
@@ -60,8 +60,8 @@ def run(
 
         # Bound cache growth, and pick up a refreshed bundle at the same time.
         if cached_day is not None and local.date() != cached_day:
-            log.info("new service day, clearing schedule cache")
-            cache.clear()
+            log.info("new service day, refreshing bundles and timetables")
+            timetables.clear()
             for feed in settings.gtfs_feeds:
                 try:
                     ensure_bundle(feed)
@@ -73,7 +73,7 @@ def run(
             last_run = time.monotonic()
             commuting = in_commute_window(local)
             try:
-                _log_results(local, commuting, collect_once(stops, cache, local, commuting))
+                _log_results(local, commuting, collect_once(stops, timetables, local, commuting))
             except Exception:
                 # A single bad poll must not kill a week-long collection run.
                 log.exception("sampling pass failed; continuing")

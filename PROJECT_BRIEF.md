@@ -234,7 +234,15 @@ notification has no delivery dependency at all.
 
 The phone calls the Trip Planner API directly. A server is only needed if we end
 up requiring APNs push updates (§5.1) or for offline data collection (§7,
-Phase 0). I have a Hetzner VPS available if needed.
+Phase 0).
+
+**Clarified 2026-07-28:** the VPS is **Hetzner, Singapore region** — Hetzner opened
+Singapore in August 2024, so §4's "VPS in Singapore" and this section were never in
+conflict. Phase 0 collection runs there under two systemd timers (see `deploy/`). Host
+timezone is deliberately left alone: quota days, commute windows and GTFS service days
+are all computed in `Australia/Sydney` inside the collector, and the timers are
+interval-based rather than pinned to a wall-clock hour, so no timezone appears in any
+unit file.
 
 ### 5.4 Stack: DECIDED — native Swift
 
@@ -382,6 +390,14 @@ Two measures are recorded rather than one, because they fail differently. `api_d
 never depends on joining two systems. `naive_gap` (realtime minus the static GTFS time)
 is the headline claim but requires matching TfNSW stop IDs to GTFS `stop_id` values,
 which are not the same identifiers. The match rate is reported, not hidden.
+
+**Timetables are parsed once per service day into SQLite, not held in memory.** Parsing
+the 99 MB bus bundle takes ~40 seconds; caching that only in a process forced the
+collector to be long-running, since any scheduled task would have re-parsed on every
+run. Persisting it drops a sampling pass to ~1.7 seconds, which is what makes systemd
+timers viable — and those survive reboots and catch up missed runs, where a laptop
+process leaves holes at exactly the peak hours the dataset needs. It also removed an
+accidental re-parse of the whole bundle once per watched stop.
 
 **Optional ground truth:** two iOS Shortcuts ("Boarded"/"Arrived") POST a timestamp to
 the collector. Not needed for the headline — TfNSW's own realtime feed supplies that —

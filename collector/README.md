@@ -72,11 +72,26 @@ real response is what tightens them.
 
 ## Collecting
 
+For a real collection run, deploy to a server with systemd timers — see `deploy/`.
+Nothing needs to stay running, reboots cost nothing, and a missed run is caught up.
+
+```bash
+uv run nextstop build-timetable  # ~40s, once per service day
+uv run nextstop collect-once     # ~1.7s per pass
+```
+
+`build-timetable` parses the published timetable into SQLite. That separation is the
+reason a sampling pass is fast: holding the parse in memory instead would force the
+collector to be a long-running process, because a scheduled task would re-parse the
+99 MB bus bundle on every single run.
+
+For a laptop, the long-running loop still works:
+
 ```bash
 uv run nextstop schedule         # runs until Ctrl+C
 ```
 
-Samples every 15 minutes on weekdays during 06:00–10:00 and 15:00–20:00 Sydney time,
+It samples every 15 minutes on weekdays during 06:00–10:00 and 15:00–20:00 Sydney time,
 and hourly outside that window. The off-peak baseline is deliberate: showing that
 schedule and realtime agree when nothing is wrong is what makes the peak-hour gap
 meaningful rather than just noise.

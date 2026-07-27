@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import timedelta
 from pathlib import Path
 
 import typer
@@ -9,7 +10,8 @@ from rich.table import Table
 
 from . import resolve as resolve_module
 from . import scheduling
-from .collect import ScheduleCache, collect_once
+from . import timetable as timetable_module
+from .collect import Timetables, collect_once, service_days_for
 from .config import get_settings
 from .gtfs.static import ensure_bundle
 from .quota import calls_used
@@ -92,6 +94,41 @@ def gtfs_refresh_command(
         )
 
 
+@app.command("build-timetable")
+def build_timetable_command(
+    ahead: int = typer.Option(0, help="Also build this many days beyond today"),
+    prune: bool = typer.Option(True, help="Drop stored timetables older than 30 days"),
+) -> None:
+    """Parse the published timetable into the database.
+
+    This is the slow step — around 150 seconds for the bus bundle. Doing it once a day
+    here is what lets each sampling run start in about a second, so the collector does
+    not need to be a long-running process.
+    """
+    _setup_logging()
+    init_db()
+    stops = _select_stops("all")
+    bundles = {feed: ensure_bundle(feed) for feed in get_settings().gtfs_feeds}
+
+    days = service_days_for(now_sydney())
+    days += [days[-1] + timedelta(days=n) for n in range(1, ahead + 1)]
+    Timetables(bundles, stops).ensure(days)
+
+    if prune:
+        removed = timetable_module.prune()
+        if removed:
+            console.print(f"pruned {removed} old timetable entries")
+
+    table = Table(title="Stored timetables")
+    table.add_column("Feed")
+    table.add_column("Service day")
+    table.add_column("Departures", justify="right")
+    table.add_column("Built (UTC)")
+    for feed, service_day, count, built_at in timetable_module.status():
+        table.add_row(feed, str(service_day), str(count), built_at.strftime("%Y-%m-%d %H:%M"))
+    console.print(table)
+
+
 @app.command("resolve-stops")
 def resolve_stops_command(
     output: Path = typer.Option(resolve_module.DEFAULT_PATH, help="Where to write stops.json"),
@@ -150,8 +187,8 @@ def collect_once_command(
     init_db()
     stops = _select_stops(stop)
     bundles = {feed: ensure_bundle(feed) for feed in get_settings().gtfs_feeds}
-    cache = ScheduleCache(bundles)
-    results = collect_once(stops, cache, now_sydney(), include_alerts=alerts)
+    timetables = Timetables(bundles, stops)
+    results = collect_once(stops, timetables, now_sydney(), include_alerts=alerts)
 
     table = Table(title="Sampling results")
     table.add_column("Stop")
@@ -211,7 +248,7 @@ def schedule_command(
     stops = _select_stops(stop)
     bundles = {feed: ensure_bundle(feed) for feed in get_settings().gtfs_feeds}
     try:
-        scheduling.run(stops, ScheduleCache(bundles))
+        scheduling.run(stops, Timetables(bundles, stops))
     except KeyboardInterrupt:
         console.print("\n[yellow]stopped[/]")
 

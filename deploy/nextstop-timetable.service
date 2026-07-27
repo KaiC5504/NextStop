@@ -1,0 +1,14 @@
+[Unit]
+Description=NextStop timetable build (refresh GTFS bundles, parse into the database)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/NextStop/collector
+EnvironmentFile=%h/NextStop/collector/.env
+ExecStart=%h/.local/bin/uv run nextstop build-timetable
+
+# Parsing the bus bundle takes about 40 seconds and downloading it can take longer
+# on a slow link.
+TimeoutStartSec=1800
