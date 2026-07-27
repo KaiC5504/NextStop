@@ -172,14 +172,25 @@ class Observation(Base):
 
 
 class ServiceAlert(Base):
-    """Snapshot of a TfNSW service alert, for correlating gaps with published disruption."""
+    """Snapshot of a TfNSW service alert, for correlating gaps with published disruption.
+
+    Stored once per revision, not once per poll. The network carries ~276 active alerts
+    at any moment and almost none of them change between samples, so writing every one
+    every 15 minutes would add ~26,000 near-identical rows a day and hundreds of
+    megabytes a week. Keying on the alert's own last-modified stamp keeps the timeline
+    of genuine changes and drops the repeats.
+    """
 
     __tablename__ = "service_alert"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     fetched_at: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
     alert_id: Mapped[str] = mapped_column(String(128), index=True)
+    last_modified: Mapped[str | None] = mapped_column(String(64), nullable=True)
     priority: Mapped[str | None] = mapped_column(String(32), nullable=True)
     subtitle: Mapped[str | None] = mapped_column(Text, nullable=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+
+
+Index("ix_alert_revision", ServiceAlert.alert_id, ServiceAlert.last_modified)

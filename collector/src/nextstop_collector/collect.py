@@ -10,6 +10,8 @@ import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
+from sqlalchemy import select
+
 from . import timetable
 from .gtfs.static import GtfsBundle, ScheduledDeparture
 from .resolve import ResolvedStop
@@ -169,22 +171,38 @@ def collect_stop(
 
 
 def collect_service_alerts(client: TfnswClient, when: datetime) -> int:
+    """Store any alert revision not already held. Returns the number newly stored."""
     raw = client.service_alerts(when)
     alerts = tfnsw_trip.parse_service_alerts(raw)
     moment = now_utc()
+    stored = 0
+
     with session_scope() as session:
+        known = {
+            (row[0], row[1])
+            for row in session.execute(
+                select(ServiceAlert.alert_id, ServiceAlert.last_modified)
+            ).all()
+        }
         for alert in alerts:
+            revision = (alert["alert_id"], alert["last_modified"])
+            if revision in known:
+                continue
+            known.add(revision)
+            stored += 1
             session.add(
                 ServiceAlert(
                     fetched_at=moment,
                     alert_id=alert["alert_id"],
+                    last_modified=alert["last_modified"],
                     priority=alert["priority"],
                     subtitle=alert["subtitle"],
                     content=alert["content"],
                     raw=alert["raw"],
                 )
             )
-    return len(alerts)
+    log.info("service alerts: %d returned, %d new revisions stored", len(alerts), stored)
+    return stored
 
 
 def collect_once(
@@ -199,5 +217,5 @@ def collect_once(
         for stop in stops.values():
             results.append(collect_stop(client, stop, timetables, when))
         if include_alerts:
-            log.info("stored %d service alerts", collect_service_alerts(client, when))
+            collect_service_alerts(client, when)
     return results
