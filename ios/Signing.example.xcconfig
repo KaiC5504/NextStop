@@ -1,0 +1,12 @@
+// Copy to Signing.xcconfig before running `xcodegen generate`.
+//
+//   cp Signing.example.xcconfig Signing.xcconfig
+//
+// Signing.xcconfig is gitignored. Leave DEVELOPMENT_TEAM empty for simulator builds —
+// they are unsigned, so the whole spike compiles and runs in the simulator with no
+// Apple Developer account at all. Fill it in only when building for a real device.
+//
+// Find your Team ID at developer.apple.com -> Membership details. It is 10 characters.
+
+DEVELOPMENT_TEAM =
+CODE_SIGN_IDENTITY = Apple Development

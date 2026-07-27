@@ -1,0 +1,76 @@
+# Codemagic CI. Unverified until it has run once — see ios/README.md, Stage B.
+#
+# Two workflows on purpose. `compile-check` needs no Apple Developer account and no
+# signing, so it can prove the project builds while enrolment is still pending.
+# `testflight` is the one that puts a build on a phone, and only it needs credentials.
+
+workflows:
+  compile-check:
+    name: Compile check (simulator, unsigned)
+    max_build_duration: 20
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+    scripts:
+      - name: Install XcodeGen
+        script: brew install xcodegen
+      - name: Generate the Xcode project
+        script: |
+          cd ios
+          cp Signing.example.xcconfig Signing.xcconfig
+          xcodegen generate
+      - name: Build for simulator
+        script: |
+          xcodebuild \
+            -project ios/NextStop.xcodeproj \
+            -scheme NextStop \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+    artifacts:
+      - /tmp/xcodebuild_logs/*.log
+
+  testflight:
+    name: Device build to TestFlight
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: NextStop ASC key
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.kaichuan.nextstop
+      vars:
+        BUNDLE_ID: "com.kaichuan.nextstop"
+        WIDGET_BUNDLE_ID: "com.kaichuan.nextstop.widget"
+    scripts:
+      - name: Install XcodeGen
+        script: brew install xcodegen
+      - name: Generate the Xcode project
+        script: |
+          cd ios
+          cp Signing.example.xcconfig Signing.xcconfig
+          xcodegen generate
+      - name: Fetch signing files
+        script: |
+          keychain initialize
+          # The widget extension needs its own profile. Omitting it is the classic
+          # cause of a build that signs the app fine and then fails on embedding.
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files "$WIDGET_BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles --project ios/NextStop.xcodeproj
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --project ios/NextStop.xcodeproj \
+            --scheme NextStop
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

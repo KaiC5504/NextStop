@@ -42,10 +42,10 @@ These are the acceptance criteria. Track them explicitly.
 
 | #   | Requirement                                                                                 | Status      |
 | --- | ------------------------------------------------------------------------------------------- | ----------- |
-| R1  | Routing and departure times match Opal Travel, not Google's approximations                  | Phase 0 collector built and tested; **no data collected yet**, blocked on TfNSW API key |
+| R1  | Routing and departure times match Opal Travel, not Google's approximations                  | **Collecting since 2026-07-27**, unattended on the VPS. Report after ~3 weekdays |
 | R2  | A real map showing my route and current position, comparable to Google Maps                 | Not started |
-| R3  | Live Activity on the Lock Screen **and** Dynamic Island for an active journey               | Mechanism identified (§5.1); unproven on device, gated on Apple enrolment |
-| R4  | "Get off at the next stop" alert that fires reliably with the phone locked and in my pocket | Design revised to two mechanisms — see §5.2 |
+| R3  | Live Activity on the Lock Screen **and** Dynamic Island for an active journey               | Spike written 2026-07-28 (`ios/`), **never compiled**; unproven on device |
+| R4  | "Get off at the next stop" alert that fires reliably with the phone locked and in my pocket | Design revised to two mechanisms — see §5.2. Depends on the R3 spike result |
 | R5  | Correct handling of delays, disruptions, trackwork and replacement services                 | GTFS-R quirk filters written and unit-tested against synthetic feeds |
 
 
@@ -406,13 +406,38 @@ right".
 
 ### Phase 1 — Live Activity spike (the make-or-break test)
 
-Build the smallest possible app whose only job is: start a Live Activity, get
-backgrounded, and keep updating 10+ minutes later while I walk around Chatswood
-with the phone locked in my pocket.
+**Stage A built 2026-07-28. Code complete, never compiled.** See `ios/README.md`.
 
-**Goal:** answer whether R3/R4 are achievable on the chosen stack, and settle
-the Option A vs Option B decision in §5.4. **If this fails, stop and rethink
-before writing any real features.**
+The smallest possible app whose only job is: start a Live Activity, get backgrounded,
+and keep updating for a whole commute while the phone is locked in my pocket.
+
+**Goal:** answer whether R3/R4 are achievable. §5.4 is already settled, so this no
+longer arbitrates a stack choice — it tests one property of iOS:
+
+> Does the process survive while CoreLocation receives **no fixes**, as it does for the
+> entire Metro tunnel?
+
+That clause is the whole risk. Holding a location session keeps a process alive; nobody
+documents what happens when the location stream goes quiet underground. If iOS suspends
+on a silent stream, the Live Activity freezes precisely where R3 is needed most.
+
+Built as an instrument rather than a demo, because each device test costs a build plus
+TestFlight processing (~20 min) and the build machine is remote, so the phone can never
+be attached to it. One build runs three mechanisms — `CLBackgroundActivitySession`, the
+classic `CLLocationManager` approach, and **a no-holder control** — switchable on screen.
+The control is load-bearing: without it a passing run cannot be distinguished from an OS
+that had not yet got around to suspending the app.
+
+**Verdict is the max gap between ticks**, shown on the Lock Screen in green under 15s,
+so a commute can be scored without unlocking the phone. Evidence is a flushed-per-line
+log in the App Group container, readable and shareable from inside the app — there is no
+Mac to attach a debugger to.
+
+**Stages:** A. write it (done, Windows) → B. compile (Codemagic `compile-check` is free
+and needs no Apple account, or a rented Mac for a ~40s loop) → C. sign, TestFlight, ride
+the Metro. Only C needs enrolment.
+
+**If this fails, stop and rethink before writing any real features.**
 
 ### Phase 2 — Core journey flow
 
@@ -501,17 +526,24 @@ what happened without a Mac in front of me.
 
 ## 11. Immediate next actions
 
-Blocking, in order. The first two are mine, not Claude's.
+**Updated 2026-07-28.** The two original blockers (Apple enrolment, TfNSW key) are
+done, and Phase 0 collection is live and unattended on the VPS under two systemd
+timers — it needs no further attention until there is a week of data to report on.
 
-1. **Enrol in the Apple Developer Program as an Individual** (~USD $99/yr). Listed
-first because verification takes 24–48h+ and gates Phase 1 entirely, while everything
-else can proceed in the meantime.
-2. **Register a TfNSW Open Data API key.** Free, near-instant, at
-opendata.transport.nsw.gov.au → Applications → Create Application. Subscribe it to
-**Trip Planner** and **Public Transport - Timetables**. This is the only key the
-collector needs, and it blocks all of Phase 0.
-3. Then, from `collector/`: `nextstop gtfs-refresh`, `nextstop resolve-stops` (and
-**read the table** — the Trip Planner and GTFS stop IDs are different identifier
-systems and a bad match silently poisons the dataset), `nextstop collect-once --raw`
-to capture the first real response as a fixture, then `nextstop schedule`.
+Remaining, in order:
+
+1. **Get the code onto a build machine.** Codemagic needs the repo pushed to a git
+host; the repo is currently local-only. A rented Scaleway M1 needs no remote (scp the
+tree, as with the VPS) and gives a ~40s edit-compile loop instead of ~10 minutes.
+Decide which before Stage B.
+2. **Compile the Phase 1 spike** (Stage B). Nothing here needs an Apple Developer
+account — simulator builds are unsigned. Expect a first-build error list; a fresh
+two-target project with an App Group usually has one.
+3. **Find the Team ID** at developer.apple.com → Membership, and put it in
+`ios/Signing.xcconfig`. Only Stage C needs it.
+4. **Ride the Metro with the spike running** (Stage C), once per mechanism including
+the control. Procedure in `ios/README.md`.
+5. **After ~3 weekdays of collection**, pull `nextstop.db` and run `nextstop report`.
+The two things to look for: whether `naive_gap` diverges from zero at peak, and whether
+buses diverge more than Metro.
 
