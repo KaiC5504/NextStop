@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -11,10 +12,16 @@ class Settings(BaseSettings):
     )
 
     tfnsw_api_key: str = ""
-    google_api_key: str = ""
     ingest_token: str = ""
 
     database_url: str = "sqlite:///nextstop.db"
+
+    # Static GTFS bundles to compare against. These are the modes the Chatswood
+    # corridor runs on; buses is deliberately excluded because the bundle is enormous
+    # and the corridor is rail.
+    gtfs_feeds: tuple[str, ...] = ("metro", "sydneytrains")
+    gtfs_cache_dir: Path = Path("gtfs_cache")
+    gtfs_max_age_hours: int = 24 * 7
 
     # Bronze plan: 60,000 calls/day, 5 calls/second.
     daily_quota: int = 60_000
@@ -26,6 +33,8 @@ class Settings(BaseSettings):
     backoff_base_seconds: float = 1.0
     backoff_max_seconds: float = 60.0
     request_timeout_seconds: float = 30.0
+    # The GTFS bundle is tens of MB, so it needs a far longer timeout than a JSON call.
+    download_timeout_seconds: float = 600.0
 
     # The docs say the quota counter resets at "midnight AEST". AEST is fixed UTC+10
     # but Sydney shifts to UTC+11 over summer, so the two readings differ by an hour
@@ -40,13 +49,6 @@ class Settings(BaseSettings):
                 "NEXTSTOP_TFNSW_API_KEY is not set. Copy .env.example to .env and fill it in."
             )
         return self.tfnsw_api_key
-
-    def require_google_key(self) -> str:
-        if not self.google_api_key:
-            raise RuntimeError(
-                "NEXTSTOP_GOOGLE_API_KEY is not set. Copy .env.example to .env and fill it in."
-            )
-        return self.google_api_key
 
 
 @lru_cache

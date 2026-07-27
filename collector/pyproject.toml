@@ -1,7 +1,7 @@
 [project]
 name = "nextstop-collector"
 version = "0.1.0"
-description = "Phase 0 data collection: TfNSW Trip Planner vs Google Routes vs observed reality"
+description = "Phase 0 data collection: TfNSW published timetable vs Trip Planner realtime"
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28",

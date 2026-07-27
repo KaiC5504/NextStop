@@ -1,8 +1,8 @@
 from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import JSON, Date, DateTime, Float, Index, Integer, String, Text
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
 
 
@@ -61,61 +61,57 @@ class ApiCallLog(Base):
 Index("ix_api_call_provider_day", ApiCallLog.provider, ApiCallLog.quota_date)
 
 
-class TripQuery(Base):
-    """A single trip-planning request to one provider, with its response kept verbatim.
+class DepartureSample(Base):
+    """One upcoming departure as seen at one moment in time.
 
-    The raw payload is stored so the normalisation logic can be rewritten and replayed
-    against collected data instead of re-collecting another week of commutes.
+    The Phase 0 thesis lives in two columns:
+
+    `api_delay_seconds` is estimated minus planned, both from the same Trip Planner
+    response. It is always available and never depends on a join, so it is the robust
+    headline number.
+
+    `naive_gap_seconds` is estimated minus the *static GTFS* scheduled time. That is
+    the gap an app built on the published timetable alone would show wrong, which is
+    the claim being tested. It is null when the static match fails, and those failures
+    are kept rather than dropped.
     """
 
-    __tablename__ = "trip_query"
+    __tablename__ = "departure_sample"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    requested_at: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
+    polled_at: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
     quota_date: Mapped[date] = mapped_column(Date, index=True)
-    provider: Mapped[str] = mapped_column(String(16), index=True)
-    corridor: Mapped[str] = mapped_column(String(64), index=True)
-    origin_ref: Mapped[str] = mapped_column(String(64))
-    destination_ref: Mapped[str] = mapped_column(String(64))
-    depart_after: Mapped[datetime] = mapped_column(UtcDateTime)
-    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    raw_response: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
-    options: Mapped[list["TripOption"]] = relationship(
-        back_populates="query", cascade="all, delete-orphan"
-    )
+    stop_key: Mapped[str] = mapped_column(String(32), index=True)
+    stop_id: Mapped[str] = mapped_column(String(64))
+    route: Mapped[str] = mapped_column(String(128), default="")
+    destination: Mapped[str] = mapped_column(String(128), default="")
+    mode: Mapped[str] = mapped_column(String(32), default="")
+
+    planned_departure: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
+    estimated_departure: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
+    scheduled_departure: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
+
+    api_delay_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    naive_gap_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Non-zero means the API's own "planned" disagrees with the published timetable,
+    # which is itself worth seeing rather than averaging away.
+    planned_vs_scheduled_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    matched_static: Mapped[bool] = mapped_column(default=False)
+    gtfs_trip_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    gtfs_feed: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    raw: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
-class TripOption(Base):
-    """One suggested journey from a TripQuery, flattened for comparison."""
-
-    __tablename__ = "trip_option"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    query_id: Mapped[int] = mapped_column(ForeignKey("trip_query.id"), index=True)
-    rank: Mapped[int] = mapped_column(Integer)
-    departure_time: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
-    arrival_time: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
-    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    # True when the provider supplied a live estimate rather than only timetable data.
-    is_realtime: Mapped[bool] = mapped_column(default=False)
-
-    # Timetabled departure, kept alongside the realtime one so delay is recoverable.
-    departure_planned: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
-    mode_sequence: Mapped[str] = mapped_column(String(256), default="")
-    leg_count: Mapped[int] = mapped_column(Integer, default=0)
-    legs: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
-
-    query: Mapped[TripQuery] = relationship(back_populates="options")
+Index("ix_sample_stop_planned", DepartureSample.stop_key, DepartureSample.planned_departure)
 
 
 class Observation(Base):
-    """Ground truth: what actually happened, sent from an iOS Shortcut.
+    """Ground truth from an iOS Shortcut: what actually happened.
 
-    Without this the dataset can only show that the two providers disagree, not which
-    one was right.
+    Optional for the headline result, which TfNSW's own realtime feed supplies. This
+    is what shows the realtime estimate was *right*, not merely different.
     """
 
     __tablename__ = "observation"
@@ -130,7 +126,7 @@ class Observation(Base):
 
 
 class ServiceAlert(Base):
-    """Snapshot of a TfNSW service alert, for scoring disruption handling."""
+    """Snapshot of a TfNSW service alert, for correlating gaps with published disruption."""
 
     __tablename__ = "service_alert"
 

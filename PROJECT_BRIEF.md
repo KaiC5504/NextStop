@@ -42,7 +42,7 @@ These are the acceptance criteria. Track them explicitly.
 
 | #   | Requirement                                                                                 | Status      |
 | --- | ------------------------------------------------------------------------------------------- | ----------- |
-| R1  | Routing and departure times match Opal Travel, not Google's approximations                  | Phase 0 collector built and tested; blocked on TfNSW API key |
+| R1  | Routing and departure times match Opal Travel, not Google's approximations                  | Phase 0 collector built and tested; **no data collected yet**, blocked on TfNSW API key |
 | R2  | A real map showing my route and current position, comparable to Google Maps                 | Not started |
 | R3  | Live Activity on the Lock Screen **and** Dynamic Island for an active journey               | Mechanism identified (§5.1); unproven on device, gated on Apple enrolment |
 | R4  | "Get off at the next stop" alert that fires reliably with the phone locked and in my pocket | Design revised to two mechanisms — see §5.2 |
@@ -92,6 +92,18 @@ Request.
 
 For live vehicle positions (the moving dot on the map) and stop time updates.
 Protobuf format.
+
+### Static GTFS timetable bundles
+
+`/v1/gtfs/schedule/{feed}` — zipped GTFS. **Not a routing source** (§9 still stands),
+but Phase 0 uses it as the naive baseline: the published timetable, which is what an
+app without realtime would show. Bundles are large, so `stop_times.txt` is streamed and
+filtered rather than loaded, and parsed timetables are cached per service day.
+
+One trap worth knowing: GTFS times can exceed 24:00:00 for after-midnight services, and
+the spec defines its clock as "noon minus 12 hours" on the service date specifically so
+that daylight-saving days still have 24 nominal hours. Anchoring at midnight instead
+shifts every departure by an hour on the two transition days a year.
 
 ### Service alerts
 
@@ -312,19 +324,38 @@ Phase 1 as soon as enrolment lands.
 
 ### Phase 0 — Validate the premise (no app, no Mac, no cost)
 
-Poll the Trip Planner API for my Chatswood commute on a schedule. Log its output
-alongside what Google Maps shows for the same trip, over ~1 week. Runs on my VPS,
-a laptop cron, or GitHub Actions.
+**Rewritten 2026-07-27. The Google comparison arm is gone.** Google Maps Platform terms
+prohibit using the APIs to build a competing product, deriving a dataset from
+responses, and publishing comparative benchmarks without also publishing everything
+needed for Google to replicate them. Enforcement is project termination. Not worth it
+on a personal project, and unnecessary — the same gap is measurable inside TfNSW's own
+data, with nothing stopping us publishing the result.
 
-**Built.** See `collector/` — Python, `uv run nextstop`, 48 tests passing offline.
-Blocked only on a TfNSW API key and a Google Routes key.
+**The comparison is now TfNSW-internal.** Every 15 minutes across the Chatswood commute
+window, for each watched stop, record:
 
-**Goal:** hard evidence that the accuracy gap is real and worth building for.
-Produces a comparison dataset that makes a good README if this goes open source.
+- **scheduled** departure time, from the static GTFS bundle — what a naive timetable
+app would display
+- **realtime** departure time, from the Trip Planner API — what is actually happening
+- the **delta** between them
 
-**Sharpened:** comparing two APIs to each other only proves they disagree, not which is
-right. Ground truth comes from two iOS Shortcuts ("Boarded"/"Arrived") that POST a
-timestamp to the collector. Without those the report says so rather than overclaiming.
+That delta is the thesis: the gap a naive GTFS consumer misses and the Trip Planner
+catches. Structurally the same gap as Google vs Opal Travel, with no licensing
+entanglement and fully publishable.
+
+**Built, not yet run.** See `collector/` — Python, `uv run nextstop`, 83 tests passing
+offline. **Zero data collected so far**; blocked entirely on a TfNSW API key.
+
+Two measures are recorded rather than one, because they fail differently. `api_delay`
+(realtime minus planned, both from one Trip Planner response) is always available and
+never depends on joining two systems. `naive_gap` (realtime minus the static GTFS time)
+is the headline claim but requires matching TfNSW stop IDs to GTFS `stop_id` values,
+which are not the same identifiers. The match rate is reported, not hidden.
+
+**Optional ground truth:** two iOS Shortcuts ("Boarded"/"Arrived") POST a timestamp to
+the collector. Not needed for the headline — TfNSW's own realtime feed supplies that —
+but it upgrades the claim from "realtime differed from the timetable" to "realtime was
+right".
 
 ### Phase 1 — Live Activity spike (the make-or-break test)
 
@@ -386,7 +417,15 @@ Flag these when relevant; don't paper over them.
 
 ## 9. Explicitly decided against
 
-- Reimplementing routing from static GTFS — use the Trip Planner API.
+- Reimplementing routing from static GTFS — use the Trip Planner API. (Static GTFS is
+still used in Phase 0, but only as the *naive baseline* being measured against, never
+as a routing source.)
+- **Any use of Google Maps Platform APIs (added 2026-07-27)** — including the Routes
+API as a Phase 0 comparison arm. Their terms prohibit building a competing product,
+deriving a dataset from API responses, and publishing comparative benchmarks without
+supplying everything needed to replicate them. Enforcement is project termination.
+A TfNSW-internal comparison tests the same thesis and is publishable. Google Maps
+remains a reference point for *design*, not a data source.
 - **Expo / React Native (added 2026-07-27)** — cannot update a Live Activity locally
 while backgrounded; its only documented background path is APNs push, which §5.1
 and §9 already reject. See §5.4.
@@ -417,14 +456,15 @@ what happened without a Mac in front of me.
 
 Blocking, in order. The first two are mine, not Claude's.
 
-1. **Register a TfNSW Open Data API key.** Free, near-instant, at
+1. **Enrol in the Apple Developer Program as an Individual** (~USD $99/yr). Listed
+first because verification takes 24–48h+ and gates Phase 1 entirely, while everything
+else can proceed in the meantime.
+2. **Register a TfNSW Open Data API key.** Free, near-instant, at
 opendata.transport.nsw.gov.au → Applications → Create Application. Subscribe it to
-**Trip Planner** at minimum. Blocks all of Phase 0.
-2. **Enrol in the Apple Developer Program as an Individual** (~USD $99/yr).
-Verification can take 24–48h+ and it gates Phase 1 entirely, so start it first even
-though Phase 0 comes first.
-3. **Google Cloud project** with billing enabled and the Routes API turned on. Free
-tier covers Phase 0 volume. Needed only for the comparison arm.
-4. Then: `nextstop resolve-stops`, check the chosen IDs, `nextstop collect-once --raw`,
-capture the first real response as a fixture, and start `nextstop schedule`.
+**Trip Planner** and **Public Transport - Timetables**. This is the only key the
+collector needs, and it blocks all of Phase 0.
+3. Then, from `collector/`: `nextstop gtfs-refresh`, `nextstop resolve-stops` (and
+**read the table** — the Trip Planner and GTFS stop IDs are different identifier
+systems and a bad match silently poisons the dataset), `nextstop collect-once --raw`
+to capture the first real response as a fixture, then `nextstop schedule`.
 

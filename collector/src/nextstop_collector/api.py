@@ -1,8 +1,10 @@
 """Ground-truth ingest.
 
 Two iOS Shortcuts on the home screen POST here — one for boarding, one for arrival.
-Without this the dataset can only show that TfNSW and Google disagree, never which of
-them was right.
+
+Optional. The headline Phase 0 result comes from TfNSW's own realtime feed, which needs
+no help from you. This adds the stronger claim: that the realtime estimate matched what
+actually happened, rather than merely differing from the timetable.
 """
 
 import secrets

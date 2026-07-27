@@ -3,86 +3,101 @@
 Every timing decision is made in Sydney local time, so the collector behaves the same
 on a Windows box in Sydney as on a VPS in Europe or Singapore.
 
-Volume check: 4 corridors x 4 TfNSW calls per poll, ~72 peak polls plus ~18 off-peak
-polls a day, is roughly 400 TfNSW calls/day against a 60,000 allowance. The limit is
-not the constraint here; the 10-15s feed refresh is, which is why nothing polls faster
-than five minutes.
+Volume: 3 stops is 3 calls a poll, roughly 190 TfNSW calls a day against a 60,000
+allowance. Quota is nowhere near the constraint; the 10-15s feed refresh is, which is
+why nothing polls faster than the sampling interval.
 """
 
 import logging
 import threading
 import time
-from datetime import datetime
+from datetime import date, datetime
 
-from .collect import CollectionResult, collect_once
+from .collect import ScheduleCache, StopResult, collect_once
+from .gtfs.static import ensure_bundle
+from .config import get_settings
+from .resolve import ResolvedStop
 from .timeutil import now_sydney
 
-PEAK_WINDOWS: tuple[tuple[int, int], ...] = ((7, 10), (16, 19))
-PEAK_INTERVAL_SECONDS = 300
-OFFPEAK_INTERVAL_SECONDS = 3600
-TICK_SECONDS = 15
+# The Chatswood commute window, weekdays. Deliberately wider than the trip itself so
+# the run-up to a departure is captured, not just the departure.
+COMMUTE_WINDOWS: tuple[tuple[int, int], ...] = ((6, 10), (15, 20))
+COMMUTE_INTERVAL_SECONDS = 15 * 60
+
+# Outside the window, an hourly baseline. Showing that schedule and realtime agree when
+# nothing is wrong is what makes the peak-hour gap meaningful rather than just noisy.
+BASELINE_INTERVAL_SECONDS = 60 * 60
+
+TICK_SECONDS = 20
 
 log = logging.getLogger(__name__)
 
 
-def is_peak(moment: datetime) -> bool:
+def in_commute_window(moment: datetime) -> bool:
     if moment.weekday() >= 5:
         return False
-    return any(start <= moment.hour < end for start, end in PEAK_WINDOWS)
+    return any(start <= moment.hour < end for start, end in COMMUTE_WINDOWS)
 
 
 def interval_for(moment: datetime) -> int:
-    return PEAK_INTERVAL_SECONDS if is_peak(moment) else OFFPEAK_INTERVAL_SECONDS
+    return COMMUTE_INTERVAL_SECONDS if in_commute_window(moment) else BASELINE_INTERVAL_SECONDS
 
 
 def run(
-    corridor_keys: list[str],
-    include_google: bool = True,
+    stops: dict[str, ResolvedStop],
+    cache: ScheduleCache,
     stop_event: threading.Event | None = None,
 ) -> None:
     stop_event = stop_event or threading.Event()
+    settings = get_settings()
     last_run: float | None = None
+    cached_day: date | None = None
 
-    log.info(
-        "scheduler started for %s (google=%s)", ", ".join(corridor_keys), include_google
-    )
+    log.info("scheduler started for %s", ", ".join(stops))
 
     while not stop_event.is_set():
         local = now_sydney()
-        interval = interval_for(local)
-        due = last_run is None or (time.monotonic() - last_run) >= interval
 
-        if due:
+        # Bound cache growth, and pick up a refreshed bundle at the same time.
+        if cached_day is not None and local.date() != cached_day:
+            log.info("new service day, clearing schedule cache")
+            cache.clear()
+            for feed in settings.gtfs_feeds:
+                try:
+                    ensure_bundle(feed)
+                except Exception:
+                    log.exception("could not refresh %s bundle; continuing on the cached one", feed)
+        cached_day = local.date()
+
+        if last_run is None or (time.monotonic() - last_run) >= interval_for(local):
             last_run = time.monotonic()
-            peak = is_peak(local)
+            commuting = in_commute_window(local)
             try:
-                results = collect_once(
-                    corridor_keys,
-                    when=local,
-                    include_google=include_google,
-                    include_alerts=peak,
-                )
-                _log_results(local, peak, results)
+                _log_results(local, commuting, collect_once(stops, cache, local, commuting))
             except Exception:
                 # A single bad poll must not kill a week-long collection run.
-                log.exception("collection pass failed; continuing")
+                log.exception("sampling pass failed; continuing")
 
         stop_event.wait(TICK_SECONDS)
 
     log.info("scheduler stopped")
 
 
-def _log_results(local: datetime, peak: bool, results: list[CollectionResult]) -> None:
+def _log_results(local: datetime, commuting: bool, results: list[StopResult]) -> None:
     ok = sum(1 for r in results if r.ok)
-    journeys = sum(r.journey_count for r in results)
+    events = sum(r.events for r in results)
+    matched = sum(r.matched for r in results)
+    realtime = sum(r.with_realtime for r in results)
     log.info(
-        "%s %s poll: %d/%d requests ok, %d journeys stored",
+        "%s %s poll: %d/%d stops ok, %d departures (%d matched to timetable, %d with realtime)",
         local.strftime("%Y-%m-%d %H:%M"),
-        "peak" if peak else "off-peak",
+        "commute" if commuting else "baseline",
         ok,
         len(results),
-        journeys,
+        events,
+        matched,
+        realtime,
     )
     for result in results:
         if not result.ok:
-            log.warning("  %s/%s failed: %s", result.provider, result.corridor, result.error)
+            log.warning("  %s failed: %s", result.stop_key, result.error)

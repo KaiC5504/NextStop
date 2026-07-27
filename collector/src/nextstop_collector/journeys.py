@@ -1,7 +1,8 @@
-"""Provider-neutral journey shape.
+"""Normalised journey shape for Trip Planner `trip` responses.
 
-Both the TfNSW and Google parsers normalise into these types so the comparison logic
-never has to care which source a journey came from.
+Not used by Phase 0, which samples departures rather than plans journeys. Retained
+because Phase 2 (R1, routing that matches Opal Travel) is built on exactly this, and
+the parser plus its tests already document the response contract.
 """
 
 from dataclasses import dataclass, field
