@@ -35,10 +35,15 @@ curl -LsSf https://astral.sh/uv/install.sh | sh     # if uv is not installed
 cd ~/NextStop/collector
 uv sync
 
-# 3. Secrets. Never copy .env from git — it is not in git. Create it directly:
+# 3. Secrets. .env is not in git and must never be. Either scp your local one or
+#    create it here. If you copy it from Windows, strip CRLF: systemd's
+#    EnvironmentFile passes a trailing \r straight into the value, and the result
+#    is a 401 that looks exactly like a wrong key.
 cp .env.example .env
 nano .env            # paste NEXTSTOP_TFNSW_API_KEY
+sed -i 's/\r$//' .env
 chmod 600 .env
+grep '^NEXTSTOP_TFNSW_API_KEY=' .env | cat -A | tail -c 4   # must end in $, not ^M$
 
 # 4. First build and a manual check before automating anything
 uv run nextstop init-db
@@ -59,6 +64,17 @@ loginctl enable-linger $USER
 
 `enable-linger` is not optional. Without it systemd stops user units when the last
 session closes, and collection would end the moment you disconnect.
+
+## Observed on the Hetzner Singapore box (Ubuntu 24.04, 2026-07-28)
+
+| Step | Time |
+| --- | --- |
+| `gtfs-refresh` (all three bundles, ~111 MB) | 8s |
+| `build-timetable` cold | 20s |
+| `collect-once` warm | 2.2s |
+| One timer run, CPU consumed | 1.3s |
+
+The host clock is UTC+8 and is deliberately left that way — see §5.3 of the brief.
 
 ## Checking on it
 

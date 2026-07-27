@@ -57,11 +57,15 @@ class Settings(BaseSettings):
     quota_reset_tz: str = "Australia/Sydney"
 
     def require_tfnsw_key(self) -> str:
-        if not self.tfnsw_api_key:
+        # Stripped because a .env written on Windows and copied to a Linux box keeps its
+        # CRLF endings, and systemd's EnvironmentFile hands the trailing \r straight
+        # through into the value. The result is a 401 that looks like a bad key.
+        key = self.tfnsw_api_key.strip()
+        if not key:
             raise RuntimeError(
                 "NEXTSTOP_TFNSW_API_KEY is not set. Copy .env.example to .env and fill it in."
             )
-        return self.tfnsw_api_key
+        return key
 
 
 @lru_cache
