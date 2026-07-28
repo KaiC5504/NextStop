@@ -1,0 +1,46 @@
+name: iOS compile check
+
+# Unsigned simulator build. Needs no Apple Developer account, so it can prove the spike
+# compiles while enrolment is still pending. Device builds live in codemagic.yaml.
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-compile.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # First run is partly diagnostic: the project targets iOS 26, and a runner whose
+      # newest SDK is older than that fails with an error that reads like a code fault.
+      - name: Toolchain
+        run: |
+          ls /Applications | grep -i '^Xcode' || true
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphone || true
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: |
+          cd ios
+          cp Signing.example.xcconfig Signing.xcconfig
+          xcodegen generate
+
+      - name: Build for simulator
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ios/NextStop.xcodeproj \
+            -scheme NextStop \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            build
