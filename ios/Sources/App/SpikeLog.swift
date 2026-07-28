@@ -52,7 +52,7 @@ final class SpikeLog {
             }
             guard let handle = try? FileHandle(forWritingTo: fileURL) else { return }
             defer { try? handle.close() }
-            try? handle.seekToEnd()
+            _ = try? handle.seekToEnd()
             try? handle.write(contentsOf: data)
             try? handle.synchronize()
         }

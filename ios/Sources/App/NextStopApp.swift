@@ -19,14 +19,22 @@ struct NextStopApp: App {
 }
 
 struct RootView: View {
+    // CI launches the simulator with `-initialTab layouts` to screenshot a specific
+    // screen. Without a provisioned device there is no other way to look at these
+    // layouts at all. UserDefaults picks launch arguments up via NSArgumentDomain.
+    @State private var selection = UserDefaults.standard.string(forKey: "initialTab") ?? "spike"
+
     var body: some View {
-        TabView {
+        TabView(selection: $selection) {
             SpikeControlView()
                 .tabItem { Label("Spike", systemImage: "waveform.path.ecg") }
+                .tag("spike")
             ActivityHarnessView()
                 .tabItem { Label("Layouts", systemImage: "rectangle.on.rectangle") }
+                .tag("layouts")
             DebugLogView()
                 .tabItem { Label("Log", systemImage: "doc.text") }
+                .tag("log")
         }
     }
 }

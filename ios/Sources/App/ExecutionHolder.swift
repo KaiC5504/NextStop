@@ -61,7 +61,7 @@ final class SessionHolder: NSObject, ExecutionHolder {
                     // Logged because a stationary determination is a common precursor to
                     // the process being suspended, and there is no way to observe it
                     // live on a device with no debugger attached.
-                    if update.isStationary {
+                    if update.stationary {
                         SpikeLog.shared.write("location.stationary", "")
                     }
                 }
