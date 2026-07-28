@@ -44,7 +44,7 @@ These are the acceptance criteria. Track them explicitly.
 | --- | ------------------------------------------------------------------------------------------- | ----------- |
 | R1  | Routing and departure times match Opal Travel, not Google's approximations                  | **Collecting since 2026-07-27**, unattended on the VPS. Report after ~3 weekdays |
 | R2  | A real map showing my route and current position, comparable to Google Maps                 | Not started |
-| R3  | Live Activity on the Lock Screen **and** Dynamic Island for an active journey               | Spike written 2026-07-28 (`ios/`), **never compiled**; unproven on device |
+| R3  | Live Activity on the Lock Screen **and** Dynamic Island for an active journey               | Spike compiles and runs in simulator (2026-07-28); all 5 presentations render. **Unproven on device** — gated on enrolment |
 | R4  | "Get off at the next stop" alert that fires reliably with the phone locked and in my pocket | Design revised to two mechanisms — see §5.2. Depends on the R3 spike result |
 | R5  | Correct handling of delays, disruptions, trackwork and replacement services                 | GTFS-R quirk filters written and unit-tested against synthetic feeds |
 
@@ -406,7 +406,12 @@ right".
 
 ### Phase 1 — Live Activity spike (the make-or-break test)
 
-**Stage A built 2026-07-28. Code complete, never compiled.** See `ios/README.md`.
+**Stages A and B done 2026-07-28. Compiles and runs; untested on device.** See
+`ios/README.md`. CI is GitHub Actions (`.github/workflows/ios-compile.yml`) on a
+macOS runner with Xcode 26.5 — free, unsigned, and needing no Apple account, so Stage B
+never waited on enrolment. Each run boots a simulator, installs the app, launches it
+once per tab and uploads screenshots, because there is otherwise no way to see the UI
+before a device is provisioned.
 
 The smallest possible app whose only job is: start a Live Activity, get backgrounded,
 and keep updating for a whole commute while the phone is locked in my pocket.
