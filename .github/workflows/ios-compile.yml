@@ -53,13 +53,19 @@ jobs:
       - name: Build for simulator
         run: |
           set -o pipefail
+          # Ad-hoc signed rather than CODE_SIGNING_ALLOWED=NO. Skipping signing entirely
+          # also skips embedding entitlements, which makes the App Group container nil and
+          # fires the app's misconfiguration banner for a reason that is purely a build
+          # artifact. Ad-hoc needs no team but still applies entitlements.
           xcodebuild \
             -project ios/NextStop.xcodeproj \
             -scheme NextStop \
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -configuration Debug \
             -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
             build
 
       # Compiling only proves it parses. Launching proves it does not crash on the first
@@ -72,11 +78,28 @@ jobs:
           mkdir -p shots
           for tab in spike layouts log; do
             xcrun simctl terminate "$UDID" com.kaichuan.nextstop 2>/dev/null || true
+            sleep 3
+            echo "--- launching $tab ---"
             xcrun simctl launch "$UDID" com.kaichuan.nextstop -initialTab "$tab"
-            sleep 5
+            # A blank first screenshot suggested the launch screen was still up, so give
+            # SwiftUI real time rather than guessing again.
+            sleep 15
             xcrun simctl io "$UDID" screenshot "shots/$tab.png"
           done
           ls -la shots
+
+      - name: Collect crash reports
+        if: always()
+        run: |
+          mkdir -p shots/crashes
+          find ~/Library/Logs/DiagnosticReports -name "NextStop*" -exec cp {} shots/crashes/ \; 2>/dev/null || true
+          if [ -n "$(ls -A shots/crashes 2>/dev/null)" ]; then
+            echo "CRASHES FOUND:"
+            ls -la shots/crashes
+            head -60 shots/crashes/* || true
+          else
+            echo "no crash reports — any blank screen is a layout or timing issue, not a crash"
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
