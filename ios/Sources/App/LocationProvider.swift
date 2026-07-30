@@ -21,7 +21,10 @@ final class LocationProvider: NSObject, ObservableObject {
     /// EFA wants longitude before latitude here, unlike the `coords` arrays it returns.
     /// Six decimal places is roughly 0.1 m — more than enough, and shorter than the default
     /// description, which can render in scientific notation.
-    static func tfnswOriginString(for coordinate: CLLocationCoordinate2D) -> String {
+    ///
+    /// `nonisolated` because it reads no state; inheriting the class's main-actor isolation
+    /// only stops tests and background callers from using a pure formatter.
+    nonisolated static func tfnswOriginString(for coordinate: CLLocationCoordinate2D) -> String {
         String(format: "%.6f:%.6f:EPSG:4326", coordinate.longitude, coordinate.latitude)
     }
 }
