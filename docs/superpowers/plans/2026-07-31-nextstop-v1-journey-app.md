@@ -879,9 +879,9 @@ git push
 
 Expected: `FixtureLoaderTests`, `TransitModeTests` (3), `TripDecodingTests` (5), `JourneyMappingTests` (7) all pass.
 
-- [ ] **Step 10: Confirm the three unverified mode colours**
+- [x] **Step 10: Confirm the three unverified mode colours** — done, and one confirmed value was wrong.
 
-Train `#F6891F`, Metro `#168388` and Light Rail `#DD1E25` are confirmed and must not be changed. **Bus `#00B5EF`, Ferry `#5AB031` and Coach `#732A82` are not.** Check them against the *Transport Mode Symbols and Pictograms* dataset on data.nsw.gov.au, which ships the official artwork, and correct any that differ. Bus is the mode the daily commute depends on most.
+TfNSW staff stated the mode palette on the Open Data forum (thread 1040): Train `#F6891F`, Bus `#00B5EF`, Coach `#732A82`, Ferry `#5AB031`, **Light Rail `#EE343F`**. Bus, Ferry and Coach are confirmed as written. Light Rail was **not** — `#DD1E25` is the L2 *line* colour, and this app colours by mode. Corrected in `TransitMode.swift`. Metro `#168388` (PMS 321) stands.
 
 ---
 
@@ -1992,9 +1992,9 @@ git push
 
 Expected: `MapRegionTests` (3), `DepartureStatusTests` (5), `LocationProviderTests` (1), `AppModelTests` (8) pass alongside the earlier suites.
 
-- [ ] **Step 7: Confirm the fallback origin ID**
+- [x] **Step 7: Confirm the fallback origin ID** — done, the guess was wrong.
 
-`AppModel.originID` falls back to `"10101100"`, which is a guess at Chatswood's Trip Planner ID. Confirm and correct it:
+The plan guessed `"10101100"`. `stop_finder` returns **`206710`** for Chatswood Station. Corrected as `AppModel.fallbackOriginID`. The command that established it:
 
 ```bash
 cd collector && uv run python -c "
