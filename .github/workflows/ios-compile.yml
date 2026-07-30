@@ -88,15 +88,15 @@ jobs:
           UDID="${{ steps.sim.outputs.udid }}"
           xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/NextStop.app
           mkdir -p shots
-          for tab in spike layouts log; do
+          for screen in home settings; do
             xcrun simctl terminate "$UDID" com.kaichuan.nextstop 2>/dev/null || true
             sleep 3
-            echo "--- launching $tab ---"
-            xcrun simctl launch "$UDID" com.kaichuan.nextstop -initialTab "$tab"
+            echo "--- launching $screen ---"
+            xcrun simctl launch "$UDID" com.kaichuan.nextstop -initialScreen "$screen"
             # A blank first screenshot suggested the launch screen was still up, so give
             # SwiftUI real time rather than guessing again.
             sleep 15
-            xcrun simctl io "$UDID" screenshot "shots/$tab.png"
+            xcrun simctl io "$UDID" screenshot "shots/$screen.png"
           done
           ls -la shots
 
