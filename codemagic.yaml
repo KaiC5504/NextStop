@@ -53,20 +53,23 @@ workflows:
           # passing it by path puts the newlines back and keeps the key out of argv.
           printf '%s' "$CERT_KEY_B64" | openssl base64 -d -A > "$HOME/cert_key.pem"
 
-          # The widget extension needs a profile of its own. Omitting it is the classic
-          # cause of a build that signs the app fine and then fails on embedding.
-          for identifier in com.kaichuan.nextstop com.kaichuan.nextstop.widget; do
-            app-store-connect fetch-signing-files "$identifier" \
-              --type IOS_APP_STORE --create \
-              --certificate-key "@file:$HOME/cert_key.pem"
-          done
+          # One call, not one per target. The identifier is matched as a prefix, so this
+          # already covers com.kaichuan.nextstop.widget and creates a profile for each.
+          # Calling it again for the widget re-saves the same certificate under a second
+          # filename, and the duplicate then fails to import — "SecKeychainItemImport:
+          # Unable to decode the provided data" — leaving the keychain half populated.
+          app-store-connect fetch-signing-files com.kaichuan.nextstop \
+            --type IOS_APP_STORE --create \
+            --certificate-key "@file:$HOME/cert_key.pem"
 
           keychain add-certificates
 
       - name: Apply signing settings
         script: |
           # "Failed to set code signing settings" names no cause, so show what the command
-          # actually has to work with. Two profiles must be present, one per target.
+          # actually has to work with: two profiles, one per target, and one usable
+          # identity. Both directories are searched, and they are not the same one.
+          ls -la "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/" || true
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" || true
           security find-identity -v -p codesigning || true
           xcode-project -v use-profiles --project ios/NextStop.xcodeproj
