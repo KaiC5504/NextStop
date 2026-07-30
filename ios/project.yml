@@ -53,9 +53,9 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleIconName: AppIcon
-        # Without this every upload sits in TestFlight as "Missing Compliance" until the
-        # export-encryption question is answered by hand, which blocks install. The spike
-        # makes no network calls at all, so the answer is always the same one.
+        # The value stays false: the app makes only standard HTTPS calls to Transport NSW,
+        # and platform TLS is exempt from the export-encryption question. Without this key
+        # every upload sits in TestFlight as "Missing Compliance", which blocks install.
         ITSAppUsesNonExemptEncryption: false
         # Everything below lives in the plist rather than as INFOPLIST_KEY_* build
         # settings. Recent Xcode treats both as sources of truth and emits duplicate-key
@@ -77,11 +77,13 @@ targets:
         UIBackgroundModes:
           - location
         NSLocationWhenInUseUsageDescription: >-
-          NextStop uses your location to keep the arrival countdown updating while your
-          phone is locked. Nothing is uploaded or stored off the device.
+          NextStop uses your location to plan journeys from where you are and to keep the
+          arrival countdown updating while your phone is locked. Nothing is uploaded or
+          stored off the device.
         NSLocationAlwaysAndWhenInUseUsageDescription: >-
-          NextStop uses your location to keep the arrival countdown updating while your
-          phone is locked. Nothing is uploaded or stored off the device.
+          NextStop uses your location to plan journeys from where you are and to keep the
+          arrival countdown updating while your phone is locked. Nothing is uploaded or
+          stored off the device.
     entitlements:
       path: Generated/NextStop.entitlements
       properties:
@@ -116,3 +118,35 @@ targets:
     dependencies:
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
+
+  NextStopTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: NextStop
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        # An unhosted XCTest bundle has no keychain access group, and every Keychain
+        # test then fails with errSecMissingEntitlement (-34018). Hosting it in the app
+        # is the fix, and it is cheaper to set now than to diagnose over a 5-minute loop.
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/NextStop.app/NextStop"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+# Declared explicitly rather than left to XcodeGen's defaults: `xcodebuild test` only runs
+# a test target attached to the scheme's test action, and declaring any scheme replaces
+# the one XcodeGen would have generated — so the build targets must be listed too.
+schemes:
+  NextStop:
+    build:
+      targets:
+        NextStop: all
+        NextStopTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - NextStopTests

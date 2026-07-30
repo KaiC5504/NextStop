@@ -67,6 +67,19 @@ jobs:
             CODE_SIGNING_ALLOWED=YES \
             build
 
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ios/NextStop.xcodeproj \
+            -scheme NextStop \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -configuration Debug \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES
+
       # Compiling only proves it parses. Launching proves it does not crash on the first
       # screen, and the screenshots are the only way to see the UI before there is a
       # provisioned device to install on.
