@@ -33,9 +33,11 @@ workflows:
         script: |
           cd ios
           # Written rather than copied from the example: that one leaves the team empty,
-          # which is right for simulator builds and wrong here. Only the team is set, so
+          # which is right for simulator builds and wrong here. Nothing else is set, so
           # there is nothing for `use-profiles` to have to override.
-          printf 'DEVELOPMENT_TEAM = %s\n' "$DEVELOPMENT_TEAM" > Signing.xcconfig
+          printf 'DEVELOPMENT_TEAM = %s\nCURRENT_PROJECT_VERSION = %s\n' \
+            "$DEVELOPMENT_TEAM" "$BUILD_NUMBER" > Signing.xcconfig
+          cat Signing.xcconfig
           xcodegen generate
       - name: Apply signing settings
         script: xcode-project use-profiles --project ios/NextStop.xcodeproj

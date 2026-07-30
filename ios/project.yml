@@ -18,7 +18,9 @@ settings:
     # about iOS, not to litigate sendability. Revisit for Phase 2.
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    # CURRENT_PROJECT_VERSION deliberately absent: set here it would land in the project's
+    # build settings, which shadow the xcconfig, and CI could no longer vary it. App Store
+    # Connect rejects a build number it has already seen, so every upload needs a new one.
     TARGETED_DEVICE_FAMILY: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     CODE_SIGN_STYLE: Automatic
@@ -40,6 +42,10 @@ targets:
       path: Generated/NextStop-Info.plist
       properties:
         CFBundleDisplayName: NextStop
+        # Without this every upload sits in TestFlight as "Missing Compliance" until the
+        # export-encryption question is answered by hand, which blocks install. The spike
+        # makes no network calls at all, so the answer is always the same one.
+        ITSAppUsesNonExemptEncryption: false
         # Everything below lives in the plist rather than as INFOPLIST_KEY_* build
         # settings. Recent Xcode treats both as sources of truth and emits duplicate-key
         # errors when a target has one of each.

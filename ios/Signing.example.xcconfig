@@ -10,3 +10,8 @@
 
 DEVELOPMENT_TEAM =
 CODE_SIGN_IDENTITY = Apple Development
+
+// Fine to leave at 1 for simulator builds, which are never uploaded anywhere. CI
+// overwrites it with the Codemagic build number, because App Store Connect refuses a
+// build number it has already accepted.
+CURRENT_PROJECT_VERSION = 1
