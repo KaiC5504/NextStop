@@ -66,17 +66,19 @@ taken through a tunnel. It only proves the code compiles and the layouts render.
 
 ## Sequence
 
-| Stage | Where | Needs Apple account |
-| --- | --- | --- |
-| A. Write the code | Windows | no |
-| B. Compile, fix errors, run in simulator | Codemagic `compile-check`, or a rented Mac | no |
-| C. Sign, TestFlight, ride the Metro | Codemagic `testflight` | yes |
+| Stage | Where | Needs Apple account | State |
+| --- | --- | --- | --- |
+| A. Write the code | Windows | no | done |
+| B. Compile, fix errors, run in simulator | `.github/workflows/ios-compile.yml` | no | done 2026-07-28 |
+| C. Sign, TestFlight, ride the Metro | `codemagic.yaml` | yes | ready |
 
-Stage B has two routes. Codemagic's `compile-check` workflow is free and needs no
-account, but each iteration is ~10 minutes and it requires the repo to be pushed to a
-git host. A rented Scaleway M1 (~€0.11/h, 24h minimum) turns that into a ~40 second
-loop and needs no git remote — worth it if the first build throws a stack of errors,
-which a fresh two-target project usually does.
+The two CI systems are not redundant. GitHub Actions builds unsigned for the simulator,
+launches the app and screenshots every tab, which is the only way to look at the UI
+without a provisioned device — and it runs on every push. Codemagic exists solely for the
+signed build, because signing needs a certificate and generating one normally requires a
+Mac to produce the signing request on. Codemagic creates it through the App Store Connect
+API instead. Its free tier is 500 macOS minutes a month, so it is not spent on checks
+GitHub already covers.
 
 ## Test procedure
 
