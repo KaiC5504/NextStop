@@ -460,6 +460,20 @@ enum Theme {
         static let pill: CGFloat = 12
     }
 }
+
+extension Color {
+    /// Mode colours are published as hex by TfNSW. Storing them as hex rather than
+    /// decimal components keeps them checkable against the brand guidance by eye.
+    init(hex: UInt32) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: 1
+        )
+    }
+}
 ```
 
 - [ ] **Step 4: Write `TfNSW/TransitMode.swift`**
@@ -520,14 +534,18 @@ enum TransitMode: Equatable {
         }
     }
 
+    /// Published TfNSW mode colours. Train, Metro and Light Rail are confirmed against
+    /// the official specifications (PMS 151C, PMS 321, and the L2 line colour). Bus,
+    /// Ferry and Coach are the widely-published values but were not confirmed from a
+    /// primary source — see Step 6.
     var tint: Color {
         switch self {
-        case .train: Color(red: 0.96, green: 0.54, blue: 0.12)
-        case .metro: Color(red: 0.09, green: 0.51, blue: 0.53)
-        case .lightRail: Color(red: 0.87, green: 0.12, blue: 0.15)
-        case .bus, .schoolBus: Color(red: 0.00, green: 0.71, blue: 0.94)
-        case .coach: Color(red: 0.45, green: 0.16, blue: 0.51)
-        case .ferry: Color(red: 0.35, green: 0.69, blue: 0.19)
+        case .train: Color(hex: 0xF6891F)
+        case .metro: Color(hex: 0x168388)
+        case .lightRail: Color(hex: 0xDD1E25)
+        case .bus, .schoolBus: Color(hex: 0x00B5EF)
+        case .coach: Color(hex: 0x732A82)
+        case .ferry: Color(hex: 0x5AB031)
         case .walk, .cycle: Theme.Colors.noRealtime
         case .unknown: Theme.Colors.textSecondary
         }
@@ -545,9 +563,19 @@ git push
 
 Expected: 6 tests passing (2 from Task 2, 4 here).
 
-- [ ] **Step 6: Verify the mode colours against the published palette**
+- [ ] **Step 6: Confirm the three unverified mode colours**
 
-Open the TfNSW brand/wayfinding guidance and check the six hex values above. The colours in Step 4 were written from memory and are close, not certain. Correct any that differ, then commit. This is a real step, not a formality — wrong line colours are the single most visible way this app can look unofficial.
+Three of the six are already confirmed against primary sources and must not be changed:
+
+| Mode | Hex | Source |
+| --- | --- | --- |
+| Train | `#F6891F` | CMYK 0/56/100/0, RGB 246/137/31, PMS 151C |
+| Metro | `#168388` | CMYK 100/22/42/2, RGB 22/131/136, PMS 321 |
+| Light Rail | `#DD1E25` | L2 Randwick line, CMYK 5/100/100/2 |
+
+**Bus `#00B5EF`, Ferry `#5AB031`, and Coach `#732A82` are unconfirmed.** They are the commonly published values but no primary source was found for them. Check them against the *Transport Mode Symbols and Pictograms* dataset on data.nsw.gov.au, which ships the official artwork, and correct any that differ.
+
+This is a real step, not a formality. Wrong mode colours are the single most visible way this app can look unofficial, and bus is the mode the user's own commute depends on most.
 
 ---
 
