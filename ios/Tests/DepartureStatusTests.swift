@@ -39,10 +39,13 @@ final class DepartureStatusTests: XCTestCase {
         XCTAssertEqual(status.label, "3 min late")
     }
 
+    /// The same magnitude as the late case, negated, so this measures that early is its own
+    /// state rather than the rounding convention. 150s would have been exactly 2.5 minutes,
+    /// where the answer depends on which way `rounded()` breaks a tie.
     func testEarlyIsReportedSeparately() {
         let base = Date(timeIntervalSince1970: 1_000_000)
-        let status = DepartureStatus(leg: leg(planned: base, estimated: base.addingTimeInterval(-150), realtime: true))
-        XCTAssertEqual(status, .early(2))
-        XCTAssertEqual(status.label, "2 min early")
+        let status = DepartureStatus(leg: leg(planned: base, estimated: base.addingTimeInterval(-185), realtime: true))
+        XCTAssertEqual(status, .early(3))
+        XCTAssertEqual(status.label, "3 min early")
     }
 }
