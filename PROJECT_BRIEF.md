@@ -44,7 +44,7 @@ These are the acceptance criteria. Track them explicitly.
 | --- | ------------------------------------------------------------------------------------------- | ----------- |
 | R1  | Routing and departure times match Opal Travel, not Google's approximations                  | **Collecting since 2026-07-27**, unattended on the VPS. Report after ~3 weekdays |
 | R2  | A real map showing my route and current position, comparable to Google Maps                 | Not started |
-| R3  | Live Activity on the Lock Screen **and** Dynamic Island for an active journey               | Spike compiles and runs in simulator (2026-07-28); all 5 presentations render. **Unproven on device** — gated on enrolment |
+| R3  | Live Activity on the Lock Screen **and** Dynamic Island for an active journey               | Signed build on TestFlight (2026-07-31); all 5 presentations render in the simulator. **Still unproven on device** — the tunnel question needs a real commute |
 | R4  | "Get off at the next stop" alert that fires reliably with the phone locked and in my pocket | Design revised to two mechanisms — see §5.2. Depends on the R3 spike result |
 | R5  | Correct handling of delays, disruptions, trackwork and replacement services                 | GTFS-R quirk filters written and unit-tested against synthetic feeds |
 
@@ -537,18 +537,14 @@ timers — it needs no further attention until there is a week of data to report
 
 Remaining, in order:
 
-1. **Get the code onto a build machine.** Codemagic needs the repo pushed to a git
-host; the repo is currently local-only. A rented Scaleway M1 needs no remote (scp the
-tree, as with the VPS) and gives a ~40s edit-compile loop instead of ~10 minutes.
-Decide which before Stage B.
-2. **Compile the Phase 1 spike** (Stage B). Nothing here needs an Apple Developer
-account — simulator builds are unsigned. Expect a first-build error list; a fresh
-two-target project with an App Group usually has one.
-3. **Find the Team ID** at developer.apple.com → Membership, and put it in
-`ios/Signing.xcconfig`. Only Stage C needs it.
-4. **Ride the Metro with the spike running** (Stage C), once per mechanism including
-the control. Procedure in `ios/README.md`.
-5. **After ~3 weekdays of collection**, pull `nextstop.db` and run `nextstop report`.
+1. **Ride the Metro with the spike running** (Stage C), once per mechanism including
+the control. Procedure in `ios/README.md`. Everything upstream of this is done: the
+signed build reached TestFlight on 2026-07-31.
+2. **After ~3 weekdays of collection**, pull `nextstop.db` and run `nextstop report`.
 The two things to look for: whether `naive_gap` diverges from zero at peak, and whether
-buses diverge more than Metro.
+buses diverge more than Metro. Exclude gaps over an hour from the published charts, and
+say so — a single route-280 departure at 7,842s skews the mean on its own.
+3. **Capture ground truth.** The `observation` table is the arm that shows the realtime
+estimate matched reality rather than merely differing from the timetable, and it stays
+empty until the two Shortcuts from `nextstop shortcut` get tapped on a real trip.
 
