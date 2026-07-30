@@ -1,0 +1,125 @@
+{
+  "version": "10.6.21.17",
+  "systemMessages": [
+    {
+      "type": "error",
+      "module": "BROKER",
+      "code": -8011,
+      "text": ""
+    }
+  ],
+  "locations": [
+    {
+      "id": "suburbID:95362004:1:Chatswood:4887294:3747376:GDAV",
+      "name": "Chatswood",
+      "coord": [
+        -33.795708,
+        151.182446
+      ],
+      "type": "suburb",
+      "matchQuality": 250,
+      "isBest": false,
+      "parent": {
+        "id": "placeID:95362004:1",
+        "name": "Chatswood",
+        "type": "locality"
+      }
+    },
+    {
+      "id": "poiID:858310013:95362004:-1:Chatswood Hub:Chatswood:Chatswood Hub:ANY:POI:4887934:3747418:GDAV:nsw",
+      "name": "Chatswood Hub, Chatswood",
+      "disassembledName": "Chatswood Hub",
+      "coord": [
+        -33.795851,
+        151.189359
+      ],
+      "type": "poi",
+      "matchQuality": 241,
+      "isBest": false,
+      "parent": {
+        "id": "placeID:95362004:-1",
+        "name": "Chatswood",
+        "type": "locality"
+      }
+    },
+    {
+      "id": "poiID:858295039:95362004:-1:Chatswood RSL:Chatswood:Chatswood RSL:ANY:POI:4887075:3747570:GDAV:nsw",
+      "name": "Chatswood RSL, Chatswood",
+      "disassembledName": "Chatswood RSL",
+      "coord": [
+        -33.797533,
+        151.180171
+      ],
+      "type": "poi",
+      "matchQuality": 241,
+      "isBest": false,
+      "parent": {
+        "id": "placeID:95362004:-1",
+        "name": "Chatswood",
+        "type": "locality"
+      }
+    },
+    {
+      "id": "206710",
+      "isGlobalId": true,
+      "name": "Chatswood Station, Chatswood",
+      "disassembledName": "Chatswood Station",
+      "coord": [
+        -33.797237,
+        151.180934
+      ],
+      "type": "stop",
+      "matchQuality": 985,
+      "isBest": true,
+      "parent": {
+        "id": "placeID:95362004:1",
+        "name": "Chatswood",
+        "type": "locality"
+      },
+      "properties": {
+        "stopId": "10101117",
+        "mainLocality": "Chatswood"
+      },
+      "modes": [
+        1,
+        2,
+        5,
+        11
+      ]
+    },
+    {
+      "id": "poiID:858303803:95362004:-1:F45:Chatswood:F45:ANY:POI:4887553:3747516:GDAV:nsw",
+      "name": "F45, Chatswood",
+      "disassembledName": "F45",
+      "coord": [
+        -33.796872,
+        151.185297
+      ],
+      "type": "poi",
+      "matchQuality": 241,
+      "isBest": false,
+      "parent": {
+        "id": "placeID:95362004:-1",
+        "name": "Chatswood",
+        "type": "locality"
+      }
+    },
+    {
+      "id": "poiID:858312757:95362004:-1:OMI:Chatswood:OMI:ANY:POI:4887474:3747386:GDAV:nsw",
+      "name": "OMI, Chatswood",
+      "disassembledName": "OMI",
+      "coord": [
+        -33.795732,
+        151.184389
+      ],
+      "type": "poi",
+      "matchQuality": 241,
+      "isBest": false,
+      "parent": {
+        "id": "placeID:95362004:-1",
+        "name": "Chatswood",
+        "type": "locality"
+      }
+    }
+  ]
+}

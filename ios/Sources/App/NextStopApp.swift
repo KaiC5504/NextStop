@@ -19,22 +19,35 @@ struct NextStopApp: App {
 }
 
 struct RootView: View {
-    // CI launches the simulator with `-initialTab layouts` to screenshot a specific
-    // screen. Without a provisioned device there is no other way to look at these
-    // layouts at all. UserDefaults picks launch arguments up via NSArgumentDomain.
-    @State private var selection = UserDefaults.standard.string(forKey: "initialTab") ?? "spike"
+    @Environment(SpikeSession.self) private var session
+    @StateObject private var model = AppModel()
+    @State private var showingSettings: Bool
+
+    init() {
+        // CI launches with `-initialScreen <name>` to screenshot a screen it cannot
+        // otherwise reach. UserDefaults picks launch arguments up via NSArgumentDomain.
+        // Passing the argument at all also suppresses the first-run sheet: a fresh
+        // simulator never has a key, so `-initialScreen home` would otherwise photograph
+        // Settings sitting on top of the screen it was asked for.
+        let requested = UserDefaults.standard.string(forKey: "initialScreen")
+        let firstRun = requested == nil && KeychainStore.read() == nil
+        _showingSettings = State(initialValue: requested == "settings" || firstRun)
+    }
 
     var body: some View {
-        TabView(selection: $selection) {
-            SpikeControlView()
-                .tabItem { Label("Spike", systemImage: "waveform.path.ecg") }
-                .tag("spike")
-            ActivityHarnessView()
-                .tabItem { Label("Layouts", systemImage: "rectangle.on.rectangle") }
-                .tag("layouts")
-            DebugLogView()
-                .tabItem { Label("Log", systemImage: "doc.text") }
-                .tag("log")
+        NavigationStack {
+            HomeView(showingSettings: $showingSettings)
+                .background(Theme.Colors.background)
+        }
+        .environmentObject(model)
+        .environmentObject(model.store)
+        .preferredColorScheme(.dark)
+        .tint(Theme.Colors.textPrimary)
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+                .environmentObject(model)
+                .environmentObject(model.store)
+                .environment(session)
         }
     }
 }

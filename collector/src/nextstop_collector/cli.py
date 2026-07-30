@@ -1,7 +1,8 @@
 import json
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import typer
 from rich.console import Console
@@ -16,8 +17,9 @@ from .config import get_settings
 from .gtfs.static import ensure_bundle
 from .quota import calls_used
 from .storage.db import init_db, session_scope
+from .storage.models import Observation
 from .tfnsw.client import TfnswClient
-from .timeutil import now_sydney, now_utc, quota_day
+from .timeutil import now_sydney, now_utc, quota_day, to_sydney
 from .watchlist import BY_KEY
 
 app = typer.Typer(help="NextStop Phase 0 collector", no_args_is_help=True)
@@ -304,6 +306,43 @@ Then "Add to Home Screen" so it is one tap. Verify with:
        -H "X-NextStop-Token: {token}" -H "Content-Type: application/json" \\
        -d '{{"event":"boarded","corridor":"chatswood"}}'
 """)
+
+
+@app.command("observe")
+def observe_command(
+    event: str = typer.Argument(help="boarded or arrived"),
+    corridor: str = typer.Option(..., help=f"Journey label, e.g. one of: {', '.join(BY_KEY)}"),
+    at: str | None = typer.Option(
+        None, help="Sydney local time as 'YYYY-MM-DD HH:MM'. Defaults to now."
+    ),
+    note: str | None = typer.Option(None, help="Anything worth remembering about the trip"),
+) -> None:
+    """Record a board or arrival by hand, without running the HTTP endpoint.
+
+    The Shortcuts route needs a public HTTPS server. For a dozen trips written down on a
+    phone, this is the whole of the infrastructure.
+    """
+    if event not in ("boarded", "arrived"):
+        raise typer.BadParameter("event must be 'boarded' or 'arrived'")
+
+    if at is None:
+        moment = now_utc()
+    else:
+        try:
+            naive = datetime.strptime(at, "%Y-%m-%d %H:%M")
+        except ValueError:
+            raise typer.BadParameter("--at must look like '2026-07-28 09:03'") from None
+        moment = naive.replace(tzinfo=ZoneInfo("Australia/Sydney"))
+
+    init_db()
+    with session_scope() as session:
+        observation = Observation(
+            recorded_at=moment, event=event, corridor=corridor, note=note
+        )
+        session.add(observation)
+        session.flush()
+        local = to_sydney(observation.recorded_at).strftime("%Y-%m-%d %H:%M %Z")
+        console.print(f"[green]recorded[/] {event} on {corridor} at {local}")
 
 
 def main() -> None:
