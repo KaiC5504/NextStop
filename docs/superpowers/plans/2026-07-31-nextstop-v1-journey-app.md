@@ -8,6 +8,24 @@
 
 **Tech Stack:** Swift 5 language mode, SwiftUI, MapKit, Foundation `URLSession`, XCTest. XcodeGen generates the project. Python 3.13 + Typer + SQLAlchemy for the one collector task.
 
+## Status — Tasks 1–6 complete (merged to `main` as `068fb11`)
+
+49 iOS tests and 122 Python tests pass; both CI screenshots verified. Five pushes, as budgeted, though not the five the plan drew: Tasks 3–5 went in one push because they are disjoint logic layers, and two of the five were spent on defects found in CI.
+
+Seven places where reality contradicted the plan:
+
+| What the plan said | What was true |
+| --- | --- |
+| Route label = `transportation.number` | That is the long form — the Metro sends `"M1 Metro North West & Bankstown Line"`. `disassembledName` (`"M1"`) is the one that fits a badge. |
+| Light Rail `#DD1E25` "confirmed" | That is the L2 *line* colour. The mode colour is `#EE343F`, stated by TfNSW staff on Open Data forum thread 1040 — which also confirmed Bus, Ferry and Coach as written. |
+| Fallback origin `"10101100"` | `stop_finder` gives Chatswood Station as `206710`. |
+| `-initialScreen home` screenshots Home | A fresh simulator has no key, so the first-run sheet covered it. Passing the argument at all now suppresses that sheet. |
+| Early departure at −150 s is `.early(2)` | −150 s is exactly 2.5 minutes, so the expectation pinned a rounding tiebreak rather than the behaviour. Tested at −185 s instead, mirroring the late case. |
+| `tfnswOriginString` on a `@MainActor` class | It reads no state; main-actor isolation only stopped a nonisolated test from calling a pure formatter. Now `nonisolated`. |
+| `MapCameraPosition.automatic` | Frames the whole globe with no journey and no fix — the exact state the app launches in. Now `.userLocation(fallback:)` over Sydney. |
+
+Task 7 is the user's: install from TestFlight, paste the key, ride something.
+
 ## Global Constraints
 
 - **Deployment target iOS 26.0**, `SWIFT_VERSION = 5.0`. Both are set in `ios/project.yml` and must not change.
