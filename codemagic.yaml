@@ -72,7 +72,12 @@ workflows:
           ls -la "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/" || true
           ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" || true
           security find-identity -v -p codesigning || true
-          xcode-project -v use-profiles --project ios/NextStop.xcodeproj
+          # The plain failure message carries no cause, and -v only makes the CLI wrapper
+          # chattier. This flag is the one that surfaces the error from the code that
+          # actually patches the project.
+          xcode-project use-profiles \
+            --project ios/NextStop.xcodeproj \
+            --code-signing-setup-verbose-logging
       - name: Build IPA
         script: |
           xcode-project build-ipa \
