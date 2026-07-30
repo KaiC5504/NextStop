@@ -19,6 +19,13 @@ workflows:
       # so on an account that has never produced a provisioning profile it fails before a
       # single script runs, with "No matching profiles found". The signing files are
       # created explicitly below instead.
+      #
+      # Supplies CERTIFICATE_PRIVATE_KEY. A certificate is useless without its private
+      # key, and the key belonging to one generated in the Codemagic UI is not readable
+      # by the CLI — hence "Cannot save Signing Certificates without certificate private
+      # key". Bringing our own key means the certificate is ours to reuse indefinitely.
+      groups:
+        - code_signing
       vars:
         # Not a credential — the team ID is embedded in every distributed build and is
         # readable from any IPA. Kept here so the build has no untracked inputs.
