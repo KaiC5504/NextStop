@@ -11,69 +11,61 @@
 ## Global Constraints
 
 - **Deployment target iOS 26.0**, `SWIFT_VERSION = 5.0`. Both are set in `ios/project.yml` and must not change.
-- **There is no Mac and no local Swift toolchain.** Every Swift test and build runs on GitHub Actions (`macos-latest`). The edit→result loop is roughly 5 minutes, not 5 seconds. Batch work accordingly and never write a step that assumes local `xcodebuild`.
+- **There is no Mac and no local Swift toolchain.** Every Swift test and build runs on GitHub Actions (`macos-latest`). The edit→result loop is roughly 5 minutes.
+- **This plan has exactly five pushes** (Tasks 2–6). A Swift compile reports errors from every file in one log, so a larger batch costs the same round trip and returns more information. Do not push mid-task to "check progress" — it buys nothing and costs five minutes.
+- **There are no "write the test, push, watch it fail" steps.** Red-first earns its place when a test could pass vacuously. Here every such failure would be `cannot find 'X' in scope`, which proves nothing about the test. Write the test and the implementation together.
 - **Python tests do run locally on Windows** via `uv run pytest` from `collector/`. Task 1 is the only task with a fast loop.
-- **The TfNSW API key must never enter the repo, CI, or the app binary.** Keychain only, entered by the user at runtime. This is a hard floor with no exceptions.
-- **Google Maps Platform APIs are forbidden as a data source.** MapKit only. Google Maps remains a visual design reference and nothing more.
-- **The repo is private** because `PROJECT_BRIEF.md`, `collector/README.md`, and `collector/src/nextstop_collector/watchlist.py` contain a home address. Do not make it public.
-- **Do not break the Live Activity spike.** `SpikeControlView`, `ActivityHarnessView`, `DebugLogView`, `SpikeSession`, `LiveActivityController`, and everything under `Sources/Widget` are working code that has been verified on a real iPhone. They move behind a developer menu; they are not deleted or edited.
-- **Design language:** dark theme, glass surfaces, real motion. No flat white cards, no static information dumps. Colours and sizes come from tokens in `Theme.swift`, never hardcoded at call sites.
-- **Comment style:** comment the *why*, never the *what*. Match the density of the surrounding file. Existing files in this repo have sparse, high-value comments — follow that.
+- **The TfNSW API key must never enter the repo, CI, or the app binary.** Keychain only, entered by the user at runtime. Hard floor, no exceptions.
+- **Google Maps Platform APIs are forbidden as a data source.** MapKit only.
+- **The repo is private** because `PROJECT_BRIEF.md`, `collector/README.md`, and `collector/src/nextstop_collector/watchlist.py` contain a home address.
+- **Do not break the Live Activity spike.** `SpikeControlView`, `ActivityHarnessView`, `DebugLogView`, `SpikeSession`, `LiveActivityController`, `ExecutionHolder`, and everything under `Sources/Widget` are working code verified on a real iPhone. They move behind a developer menu. `SpikeControlView.swift:5` uses `@Environment(SpikeSession.self)`, which traps when absent — anything presenting those screens must re-inject the session.
+- **Design language:** dark theme, glass surfaces, real motion. Colours and sizes come from `Theme.swift`, never hardcoded at call sites.
+- **Comment style:** comment the *why*, never the *what*. Match the sparse, high-value density of the existing files.
 
 ---
 
 ## File Structure
 
-**New Swift source, all under `ios/Sources/App/`:**
+**New Swift source, under `ios/Sources/App/`:**
 
 | Path | Responsibility |
 | --- | --- |
-| `Theme.swift` | Colour, spacing, and typography tokens. Single source for TfNSW mode colours. |
-| `TfNSW/TransitMode.swift` | TfNSW product class → mode enum, display name, colour, SF Symbol. |
-| `TfNSW/TripDTO.swift` | `Decodable` structs mirroring the raw `trip` JSON. Nothing else. |
-| `TfNSW/StopFinderDTO.swift` | `Decodable` structs mirroring the raw `stop_finder` JSON. |
-| `TfNSW/Journey.swift` | Domain model (`Journey`, `Leg`, `LegStop`) plus mapping from DTO. |
-| `TfNSW/TfNSWClient.swift` | URL building, auth header, `URLSession` calls, error typing. |
-| `Storage/KeychainStore.swift` | Read/write/delete the API key in the Keychain. |
-| `Storage/LocalStore.swift` | Recents, saved places, feedback. JSON file in Documents. |
-| `Storage/Feedback.swift` | `PredictionFeedback` model + JSON export. |
-| `Map/JourneyMapView.swift` | `Map` with per-leg polylines, stop markers, camera fitting. |
-| `UI/GlassCard.swift` | Reusable glass surface + drag-to-expand bottom card. |
-| `UI/HomeView.swift` | Map background + "Where to?" card + recents/saved. |
-| `UI/SearchSheet.swift` | Debounced stop search, results list. |
-| `UI/JourneyOptionsView.swift` | Ranked journey cards; selection drives the map. |
-| `UI/LiveJourneyView.swift` | The main screen: legs, countdown, live badges, feedback. |
-| `UI/LegRow.swift` | One leg row, including the ✓/✗ control. |
-| `UI/SettingsView.swift` | API key entry, saved places, feedback export, developer menu. |
-| `AppModel.swift` | Observable app state: client, store, current journey, navigation. |
+| `Theme.swift` | Colour, spacing, radius tokens and a hex `Color` initialiser. |
+| `TfNSW/TransitMode.swift` | Product class → mode, display name, symbol, official colour. |
+| `TfNSW/TripDTO.swift` | `Decodable` mirrors of the raw `trip` JSON. |
+| `TfNSW/StopFinderDTO.swift` | `Decodable` mirrors of the raw `stop_finder` JSON. |
+| `TfNSW/Journey.swift` | Domain model (`Journey`, `Leg`, `LegStop`) and DTO mapping. |
+| `TfNSW/TfNSWClient.swift` | URL building, auth header, `URLSession` calls, typed errors. |
+| `Storage/KeychainStore.swift` | The API key. |
+| `Storage/Feedback.swift` | `PredictionFeedback`. |
+| `Storage/LocalStore.swift` | Recents, saved places, feedback. One JSON file. |
+| `Map/JourneyMapView.swift` | `MapFraming` plus the map itself. |
+| `LocationProvider.swift` | Current location and the EFA coordinate format. |
+| `AppModel.swift` | Observable app state. |
+| `UI/DepartureStatus.swift` | On time / late / early / scheduled-only. |
+| `UI/GlassCard.swift` | Glass surface modifier and bottom card. |
+| `UI/LegRow.swift` | One leg, including the feedback control. |
+| `UI/HomeView.swift`, `UI/SearchSheet.swift`, `UI/JourneyOptionsView.swift`, `UI/LiveJourneyView.swift`, `UI/SettingsView.swift` | The five screens. |
 
-**Modified:**
-- `ios/project.yml` — add test target, add scheme with a test action.
-- `ios/Sources/App/NextStopApp.swift:21-40` — `RootView` becomes the real app.
-- `.github/workflows/ios-compile.yml` — run tests; screenshot the new screens.
+**Modified:** `ios/project.yml`, `ios/Sources/App/NextStopApp.swift:21-40`, `.github/workflows/ios-compile.yml`, `collector/src/nextstop_collector/cli.py`.
 
-**New tests, under `ios/Tests/`:**
-- `TripDecodingTests.swift`, `TransitModeTests.swift`, `LocalStoreTests.swift`, `JourneyMappingTests.swift`
-- `Fixtures/trip-sample.json`, `Fixtures/stopfinder-sample.json`
-
-**Python:**
-- Modify `collector/src/nextstop_collector/cli.py`, add `collector/tests/test_observe_cli.py`.
+**New tests, under `ios/Tests/`:** `FixtureLoader.swift`, `FixtureLoaderTests.swift`, `TransitModeTests.swift`, `TripDecodingTests.swift`, `JourneyMappingTests.swift`, `KeychainStoreTests.swift`, `TfNSWClientTests.swift`, `LocalStoreTests.swift`, `MapRegionTests.swift`, `AppModelTests.swift`, `DepartureStatusTests.swift`, `LocationProviderTests.swift`, plus `Fixtures/trip-sample.json` and `Fixtures/stopfinder-sample.json`.
 
 ---
 
 ### Task 1: `nextstop observe` CLI command
 
-Lets manually-noted board/arrive times be backfilled into the collector database without standing up the HTTP server. This is the only task with a fast local test loop, so it goes first.
+Backfills board/arrive times noted by hand into the collector database. The app supersedes this **once it ships**, which is several pushes away — every commute between now and then is data that otherwise goes unrecorded. Local test loop, no CI.
 
 **Files:**
-- Modify: `collector/src/nextstop_collector/cli.py` (add a command after `shortcut_command`, around line 307)
+- Modify: `collector/src/nextstop_collector/cli.py` (after `shortcut_command`, around line 307)
 - Test: `collector/tests/test_observe_cli.py` (create)
 
 **Interfaces:**
-- Consumes: `Observation` from `.storage.models`, `session_scope` from `.storage.db`, `now_utc`/`to_sydney` from `.timeutil`, `BY_KEY` from `.watchlist` (already imported in `cli.py`).
-- Produces: CLI command `nextstop observe`. Nothing else depends on it.
+- Consumes: `Observation`, `session_scope`, `now_utc`, `to_sydney`, `BY_KEY` (already imported in `cli.py`).
+- Produces: CLI command `nextstop observe`. Nothing downstream depends on it.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the test**
 
 Create `collector/tests/test_observe_cli.py`:
 
@@ -127,17 +119,20 @@ class TestObserveCommand:
         assert result.exit_code != 0
 ```
 
-- [ ] **Step 2: Run the test and confirm it fails**
+- [ ] **Step 2: Implement the command**
 
-```bash
-cd collector && uv run pytest tests/test_observe_cli.py -v
+Add these imports to the top of `cli.py` if absent:
+
+```python
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from .storage.db import session_scope
+from .storage.models import Observation
+from .timeutil import now_utc, to_sydney
 ```
 
-Expected: every test fails. The first two with exit code 2 and "No such command 'observe'".
-
-- [ ] **Step 3: Implement the command**
-
-In `collector/src/nextstop_collector/cli.py`, add after `shortcut_command`:
+Then, after `shortcut_command`:
 
 ```python
 @app.command("observe")
@@ -177,34 +172,15 @@ def observe_command(
         console.print(f"[green]recorded[/] {event} on {corridor} at {local}")
 ```
 
-Add these imports at the top of `cli.py` if not already present:
-
-```python
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
-from .storage.db import session_scope
-from .storage.models import Observation
-from .timeutil import now_utc, to_sydney
-```
-
-- [ ] **Step 4: Run the tests and confirm they pass**
+- [ ] **Step 3: Run the tests**
 
 ```bash
-cd collector && uv run pytest tests/test_observe_cli.py -v
+cd collector && uv run pytest tests/test_observe_cli.py -v && uv run pytest -q
 ```
 
-Expected: 4 passed.
+Expected: 4 passed in the first run, no failures in the second.
 
-- [ ] **Step 5: Confirm the whole Python suite still passes**
-
-```bash
-cd collector && uv run pytest -q
-```
-
-Expected: no failures. If `test_observe_cli.py` interferes with another test's row counts, the fault is a shared `corridor` value — the fixtures above use `cli-` prefixes precisely to avoid that.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add collector/src/nextstop_collector/cli.py collector/tests/test_observe_cli.py
@@ -213,22 +189,22 @@ git commit -m "Add nextstop observe for recording ground truth by hand"
 
 ---
 
-### Task 2: Test target, real fixtures, and CI that runs tests
+### Task 2 — PUSH 1: Test target, fixtures, and CI that runs tests
 
-Without this there is no way to test any Swift on a Windows machine. Everything after this depends on it.
+Without this there is no way to test any Swift from Windows. Everything after depends on it.
 
 **Files:**
 - Create: `ios/Tests/Fixtures/trip-sample.json`, `ios/Tests/Fixtures/stopfinder-sample.json`
 - Create: `ios/Tests/FixtureLoader.swift`, `ios/Tests/FixtureLoaderTests.swift`
-- Modify: `ios/project.yml` (add `NextStopTests` target and a `schemes:` block)
-- Modify: `.github/workflows/ios-compile.yml` (add a test step after the build step)
+- Modify: `ios/project.yml` (test target, scheme, corrected plist comment and location strings)
+- Modify: `.github/workflows/ios-compile.yml`
 
 **Interfaces:**
-- Produces: `Fixture.data(_ name: String) -> Data` — every later test task loads JSON through this.
+- Produces: `Fixture.data(_ name: String) -> Data`.
 
-- [ ] **Step 1: Capture the two fixtures from the live API**
+- [ ] **Step 1: Capture the fixtures from the live API**
 
-Run from the repo root. This uses the key already in `collector/.env` and never prints it. The departure time is pinned to a weekday morning so the response contains Metro, bus, and walk legs rather than the NightRide-only result a 2am call returns.
+Uses the key already in `collector/.env` and never prints it. The departure time is pinned to a weekday morning so the response contains Metro, bus, and walk legs rather than the NightRide-only result a 2am call returns.
 
 ```bash
 cd collector && uv run python -c "
@@ -256,11 +232,11 @@ print('classes:', [[(l.get('transportation') or {}).get('product', {}).get('clas
 "
 ```
 
-Expected: at least one journey containing a class 99 or 100 (walk) leg and a class 2 (Metro) or 5 (bus) leg. If every leg is class 5 and the time printed is not 08:00, the date has passed — bump the date in the snippet to the next Monday.
+Expected: at least one journey with a class 99 or 100 (walk) leg and a class 2 or 5 leg. If the date has passed, bump it to the next Monday.
 
 - [ ] **Step 2: Add the test target and scheme to `ios/project.yml`**
 
-Append to the end of the file:
+Append at the end of the file. `NextStopTests` must sit at the same indent as `NextStopWidget`; `schemes:` at the same indent as `targets:`.
 
 ```yaml
   NextStopTests:
@@ -273,15 +249,21 @@ Append to the end of the file:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+        # An unhosted XCTest bundle has no keychain access group, and every Keychain
+        # test then fails with errSecMissingEntitlement (-34018). Hosting it in the app
+        # is the fix, and it is cheaper to set now than to diagnose over a 5-minute loop.
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/NextStop.app/NextStop"
+        BUNDLE_LOADER: "$(TEST_HOST)"
 
-# Declared explicitly rather than left to XcodeGen's defaults: `xcodebuild test` only
-# runs a test target that is attached to the scheme's test action, and an auto-created
-# scheme does not attach one.
+# Declared explicitly rather than left to XcodeGen's defaults: `xcodebuild test` only runs
+# a test target attached to the scheme's test action, and declaring any scheme replaces
+# the one XcodeGen would have generated — so the build targets must be listed too.
 schemes:
   NextStop:
     build:
       targets:
         NextStop: all
+        NextStopTests: [test]
     run:
       config: Debug
     test:
@@ -290,7 +272,32 @@ schemes:
         - NextStopTests
 ```
 
-- [ ] **Step 3: Write the fixture loader and a test that proves the bundle carries the JSON**
+- [ ] **Step 3: Correct two now-stale entries in `ios/project.yml`**
+
+At `ios/project.yml:56-58`, the comment explaining `ITSAppUsesNonExemptEncryption` says the app makes no network calls. That stops being true in Task 4, and a future reader would take it as a reason to change the flag. Replace the comment with:
+
+```yaml
+        # The value stays false: the app makes only standard HTTPS calls to Transport NSW,
+        # and platform TLS is exempt from the export-encryption question. Without this key
+        # every upload sits in TestFlight as "Missing Compliance", which blocks install.
+```
+
+At `ios/project.yml:79-84`, both location strings describe only the Live Activity use. Location also chooses the journey origin from Task 5. Replace both values with:
+
+```yaml
+        NSLocationWhenInUseUsageDescription: >-
+          NextStop uses your location to plan journeys from where you are and to keep the
+          arrival countdown updating while your phone is locked. Nothing is uploaded or
+          stored off the device.
+        NSLocationAlwaysAndWhenInUseUsageDescription: >-
+          NextStop uses your location to plan journeys from where you are and to keep the
+          arrival countdown updating while your phone is locked. Nothing is uploaded or
+          stored off the device.
+```
+
+Leave `UIBackgroundModes: location` alone. `ExecutionHolder.swift:99` sets `allowsBackgroundLocationUpdates = true`, and that spike is being preserved.
+
+- [ ] **Step 4: Write the fixture loader and its smoke test**
 
 Create `ios/Tests/FixtureLoader.swift`:
 
@@ -317,23 +324,21 @@ Create `ios/Tests/FixtureLoaderTests.swift`:
 import XCTest
 
 final class FixtureLoaderTests: XCTestCase {
-    func testTripFixtureIsBundledAndParses() throws {
-        let object = try JSONSerialization.jsonObject(with: Fixture.data("trip-sample")) as? [String: Any]
-        let journeys = try XCTUnwrap(object?["journeys"] as? [[String: Any]])
-        XCTAssertFalse(journeys.isEmpty)
-    }
+    /// One smoke test, not one per fixture. Later suites decode both files for real; this
+    /// exists only to turn "resource not copied into the bundle" into a clear failure.
+    func testFixturesAreBundled() throws {
+        let trip = try JSONSerialization.jsonObject(with: Fixture.data("trip-sample")) as? [String: Any]
+        XCTAssertFalse((trip?["journeys"] as? [[String: Any]] ?? []).isEmpty)
 
-    func testStopFinderFixtureIsBundledAndParses() throws {
-        let object = try JSONSerialization.jsonObject(with: Fixture.data("stopfinder-sample")) as? [String: Any]
-        let locations = try XCTUnwrap(object?["locations"] as? [[String: Any]])
-        XCTAssertFalse(locations.isEmpty)
+        let stops = try JSONSerialization.jsonObject(with: Fixture.data("stopfinder-sample")) as? [String: Any]
+        XCTAssertFalse((stops?["locations"] as? [[String: Any]] ?? []).isEmpty)
     }
 }
 ```
 
-- [ ] **Step 4: Add the test step to CI**
+- [ ] **Step 5: Add the test step to CI**
 
-In `.github/workflows/ios-compile.yml`, insert immediately after the `Build for simulator` step:
+In `.github/workflows/ios-compile.yml`, insert immediately after `Build for simulator`:
 
 ```yaml
       - name: Run unit tests
@@ -350,7 +355,7 @@ In `.github/workflows/ios-compile.yml`, insert immediately after the `Build for 
             CODE_SIGNING_ALLOWED=YES
 ```
 
-- [ ] **Step 5: Commit and push, then read the Actions result**
+- [ ] **Step 6: Commit and push**
 
 ```bash
 git add ios/project.yml ios/Tests .github/workflows/ios-compile.yml
@@ -358,75 +363,26 @@ git commit -m "Add an iOS unit test target with captured TfNSW fixtures"
 git push
 ```
 
-Expected: the workflow reaches "Run unit tests" and reports 2 tests passing. A failure at `xcodegen generate` means the YAML indentation of the appended block is wrong — `NextStopTests` must sit at the same indent as `NextStopWidget`, and `schemes:` at the same indent as `targets:`.
+Expected: the workflow reaches "Run unit tests" and `FixtureLoaderTests` passes. A failure at `xcodegen generate` means the appended YAML is indented wrong.
 
 ---
 
-### Task 3: Transit modes and the colour system
+### Task 3 — PUSH 2: Theme, modes, decoding, and the domain model
 
 **Files:**
-- Create: `ios/Sources/App/Theme.swift`
-- Create: `ios/Sources/App/TfNSW/TransitMode.swift`
-- Test: `ios/Tests/TransitModeTests.swift`
+- Create: `ios/Sources/App/Theme.swift`, `ios/Sources/App/TfNSW/TransitMode.swift`, `ios/Sources/App/TfNSW/TripDTO.swift`, `ios/Sources/App/TfNSW/StopFinderDTO.swift`, `ios/Sources/App/TfNSW/Journey.swift`
+- Test: `ios/Tests/TransitModeTests.swift`, `ios/Tests/TripDecodingTests.swift`, `ios/Tests/JourneyMappingTests.swift`
 
 **Interfaces:**
 - Produces:
-  - `enum TransitMode: Equatable` with cases `train, metro, lightRail, bus, coach, ferry, schoolBus, walk, cycle, unknown`
-  - `init(productClass: Int?)`
-  - `var displayName: String`, `var symbolName: String`, `var tint: Color`, `var isWalking: Bool`
-  - `enum Theme` with `Theme.Colors.background`, `.surface`, `.textPrimary`, `.textSecondary`, `.onTime`, `.late`, `.noRealtime`, and `Theme.Spacing.{xs,s,m,l,xl}`, `Theme.Radius.{card,pill}`
+  - `enum Theme` — `Theme.Colors.{background,surface,stroke,textPrimary,textSecondary,onTime,late,veryLate,noRealtime}`, `Theme.Spacing.{xs,s,m,l,xl}`, `Theme.Radius.{card,pill}`; `Color.init(hex: UInt32)`
+  - `enum TransitMode: Equatable` — `init(productClass: Int?)`, `displayName`, `symbolName`, `tint`, `isWalking`
+  - `TripDTO`, `JourneyDTO`, `LegDTO`, `PlaceDTO`, `TransportationDTO`, `ProductDTO`, `NamedDTO`, `StopFinderDTO`, `LocationDTO`, `JSONDecoder.tfnswDecoder`
+  - `struct Leg: Identifiable` with **`let id: String`** — `mode`, `route: String?`, `headsign: String?`, `originName`, `destinationName`, `plannedDeparture/estimatedDeparture/plannedArrival/estimatedArrival: Date?`, `hasRealtime: Bool`, `path: [CLLocationCoordinate2D]`, `stops: [LegStop]`, `durationSeconds: Int?`, computed `departure`, `arrival`, `delaySeconds`
+  - `struct Journey: Identifiable` with **`let id: String`** — `legs`, `departure`, `arrival`, `duration`, `transitLegs`, `static func list(from: TripDTO) -> [Journey]`
+  - `struct LegStop: Identifiable`
 
-- [ ] **Step 1: Write the failing test**
-
-Create `ios/Tests/TransitModeTests.swift`:
-
-```swift
-import XCTest
-@testable import NextStop
-
-final class TransitModeTests: XCTestCase {
-    func testKnownProductClassesMap() {
-        XCTAssertEqual(TransitMode(productClass: 1), .train)
-        XCTAssertEqual(TransitMode(productClass: 2), .metro)
-        XCTAssertEqual(TransitMode(productClass: 4), .lightRail)
-        XCTAssertEqual(TransitMode(productClass: 5), .bus)
-        XCTAssertEqual(TransitMode(productClass: 7), .coach)
-        XCTAssertEqual(TransitMode(productClass: 9), .ferry)
-        XCTAssertEqual(TransitMode(productClass: 11), .schoolBus)
-    }
-
-    /// TfNSW uses both 99 and 100 for walking legs in the same response.
-    func testBothWalkClassesMap() {
-        XCTAssertEqual(TransitMode(productClass: 99), .walk)
-        XCTAssertEqual(TransitMode(productClass: 100), .walk)
-        XCTAssertTrue(TransitMode(productClass: 100).isWalking)
-    }
-
-    func testMissingOrUnexpectedClassIsUnknown() {
-        XCTAssertEqual(TransitMode(productClass: nil), .unknown)
-        XCTAssertEqual(TransitMode(productClass: 42), .unknown)
-        XCTAssertFalse(TransitMode(productClass: nil).isWalking)
-    }
-
-    func testEveryModeHasDistinctDisplayNameAndSymbol() {
-        let all: [TransitMode] = [.train, .metro, .lightRail, .bus, .coach, .ferry, .schoolBus, .walk, .cycle, .unknown]
-        XCTAssertEqual(Set(all.map(\.displayName)).count, all.count)
-        for mode in all {
-            XCTAssertFalse(mode.symbolName.isEmpty, "\(mode) has no symbol")
-        }
-    }
-}
-```
-
-- [ ] **Step 2: Push and confirm the tests fail in CI**
-
-```bash
-git add ios/Tests/TransitModeTests.swift && git commit -m "Test mode mapping" && git push
-```
-
-Expected: compile failure, "cannot find 'TransitMode' in scope".
-
-- [ ] **Step 3: Write `Theme.swift`**
+- [ ] **Step 1: Write `Theme.swift`**
 
 ```swift
 import SwiftUI
@@ -439,11 +395,11 @@ enum Theme {
         static let textPrimary = Color.white
         static let textSecondary = Color.white.opacity(0.6)
 
-        static let onTime = Color(red: 0.33, green: 0.66, blue: 0.41)
-        static let late = Color(red: 0.87, green: 0.52, blue: 0.32)
-        static let veryLate = Color(red: 0.77, green: 0.31, blue: 0.32)
-        // Deliberately grey rather than a warning colour. Absent realtime is not a
-        // problem with the service, it is a limit on what the app can honestly claim.
+        static let onTime = Color(hex: 0x55A868)
+        static let late = Color(hex: 0xDD8452)
+        static let veryLate = Color(hex: 0xC44E52)
+        // Deliberately grey rather than a warning colour. Absent realtime is not a problem
+        // with the service, it is a limit on what the app can honestly claim.
         static let noRealtime = Color.white.opacity(0.45)
     }
 
@@ -462,8 +418,8 @@ enum Theme {
 }
 
 extension Color {
-    /// Mode colours are published as hex by TfNSW. Storing them as hex rather than
-    /// decimal components keeps them checkable against the brand guidance by eye.
+    /// Mode colours are published as hex by TfNSW. Storing them as hex rather than decimal
+    /// components keeps them checkable against the brand guidance by eye.
     init(hex: UInt32) {
         self.init(
             .sRGB,
@@ -476,14 +432,16 @@ extension Color {
 }
 ```
 
-- [ ] **Step 4: Write `TfNSW/TransitMode.swift`**
+- [ ] **Step 2: Write `TfNSW/TransitMode.swift`**
+
+Train, Metro and Light Rail are confirmed against the published specifications (RGB 246/137/31 PMS 151C; RGB 22/131/136 PMS 321; the L2 line colour CMYK 5/100/100/2). Bus, Ferry and Coach are the widely-published values and are **not** confirmed from a primary source — Step 8 handles that.
 
 ```swift
 import SwiftUI
 
 /// TfNSW product classes, per the Trip Planner v3.3 manual and confirmed against live
-/// responses. Colours are the published TfNSW mode colours — using anything else costs
-/// the instant recognition that makes a transit map readable at a glance.
+/// responses. Colours are the published TfNSW mode colours — using anything else costs the
+/// instant recognition that makes a transit map readable at a glance.
 enum TransitMode: Equatable {
     case train, metro, lightRail, bus, coach, ferry, schoolBus, walk, cycle, unknown
 
@@ -496,6 +454,7 @@ enum TransitMode: Equatable {
         case 7: self = .coach
         case 9: self = .ferry
         case 11: self = .schoolBus
+        // TfNSW uses both 99 and 100 for walking in the same response.
         case 99, 100: self = .walk
         case 107: self = .cycle
         default: self = .unknown
@@ -534,10 +493,6 @@ enum TransitMode: Equatable {
         }
     }
 
-    /// Published TfNSW mode colours. Train, Metro and Light Rail are confirmed against
-    /// the official specifications (PMS 151C, PMS 321, and the L2 line colour). Bus,
-    /// Ferry and Coach are the widely-published values but were not confirmed from a
-    /// primary source — see Step 6.
     var tint: Color {
         switch self {
         case .train: Color(hex: 0xF6891F)
@@ -553,112 +508,40 @@ enum TransitMode: Equatable {
 }
 ```
 
-- [ ] **Step 5: Push and confirm the tests pass**
-
-```bash
-git add ios/Sources/App/Theme.swift ios/Sources/App/TfNSW/TransitMode.swift
-git commit -m "Add theme tokens and TfNSW mode mapping"
-git push
-```
-
-Expected: 6 tests passing (2 from Task 2, 4 here).
-
-- [ ] **Step 6: Confirm the three unverified mode colours**
-
-Three of the six are already confirmed against primary sources and must not be changed:
-
-| Mode | Hex | Source |
-| --- | --- | --- |
-| Train | `#F6891F` | CMYK 0/56/100/0, RGB 246/137/31, PMS 151C |
-| Metro | `#168388` | CMYK 100/22/42/2, RGB 22/131/136, PMS 321 |
-| Light Rail | `#DD1E25` | L2 Randwick line, CMYK 5/100/100/2 |
-
-**Bus `#00B5EF`, Ferry `#5AB031`, and Coach `#732A82` are unconfirmed.** They are the commonly published values but no primary source was found for them. Check them against the *Transport Mode Symbols and Pictograms* dataset on data.nsw.gov.au, which ships the official artwork, and correct any that differ.
-
-This is a real step, not a formality. Wrong mode colours are the single most visible way this app can look unofficial, and bus is the mode the user's own commute depends on most.
-
----
-
-### Task 4: Decoding the raw `trip` response
-
-**Files:**
-- Create: `ios/Sources/App/TfNSW/TripDTO.swift`
-- Test: `ios/Tests/TripDecodingTests.swift`
-
-**Interfaces:**
-- Consumes: `Fixture.data(_:)` from Task 2.
-- Produces:
-  - `struct TripDTO: Decodable { let journeys: [JourneyDTO]? }`
-  - `struct JourneyDTO: Decodable { let legs: [LegDTO]? }`
-  - `struct LegDTO: Decodable` with `duration: Int?`, `coords: [[Double]]?`, `origin: PlaceDTO?`, `destination: PlaceDTO?`, `transportation: TransportationDTO?`, `isRealtimeControlled: Bool?`, `stopSequence: [PlaceDTO]?`
-  - `struct PlaceDTO: Decodable` with `id: String?`, `name: String?`, `disassembledName: String?`, `coord: [Double]?`, `departureTimePlanned: Date?`, `departureTimeEstimated: Date?`, `arrivalTimePlanned: Date?`, `arrivalTimeEstimated: Date?`
-  - `struct TransportationDTO: Decodable` with `number: String?`, `disassembledName: String?`, `product: ProductDTO?`, `destination: NamedDTO?`
-  - `struct ProductDTO: Decodable` with `productClass: Int?` (JSON key `class`), `name: String?`
-  - `struct NamedDTO: Decodable { let name: String? }`
-  - `static var tfnswDecoder: JSONDecoder` on `JSONDecoder`
-
-- [ ] **Step 1: Write the failing test**
-
-Create `ios/Tests/TripDecodingTests.swift`:
+- [ ] **Step 3: Write `ios/Tests/TransitModeTests.swift`**
 
 ```swift
 import XCTest
 @testable import NextStop
 
-final class TripDecodingTests: XCTestCase {
-    private func decoded() throws -> TripDTO {
-        try JSONDecoder.tfnswDecoder.decode(TripDTO.self, from: Fixture.data("trip-sample"))
+final class TransitModeTests: XCTestCase {
+    func testKnownProductClassesMap() {
+        XCTAssertEqual(TransitMode(productClass: 1), .train)
+        XCTAssertEqual(TransitMode(productClass: 2), .metro)
+        XCTAssertEqual(TransitMode(productClass: 4), .lightRail)
+        XCTAssertEqual(TransitMode(productClass: 5), .bus)
+        XCTAssertEqual(TransitMode(productClass: 7), .coach)
+        XCTAssertEqual(TransitMode(productClass: 9), .ferry)
+        XCTAssertEqual(TransitMode(productClass: 11), .schoolBus)
     }
 
-    func testJourneysAndLegsDecode() throws {
-        let trip = try decoded()
-        let journeys = try XCTUnwrap(trip.journeys)
-        XCTAssertFalse(journeys.isEmpty)
-        let legs = try XCTUnwrap(journeys[0].legs)
-        XCTAssertFalse(legs.isEmpty)
+    /// TfNSW uses both 99 and 100 for walking legs in the same response. Missing this
+    /// renders a walk as a bus, in bus blue, on the map.
+    func testBothWalkClassesMap() {
+        XCTAssertEqual(TransitMode(productClass: 99), .walk)
+        XCTAssertEqual(TransitMode(productClass: 100), .walk)
+        XCTAssertTrue(TransitMode(productClass: 100).isWalking)
     }
 
-    /// `coords` is what makes a real map possible. A leg drawn as a straight line between
-    /// two stops is the failure this test exists to catch.
-    func testTransitLegsCarryRouteGeometry() throws {
-        let legs = try XCTUnwrap(decoded().journeys?.first?.legs)
-        let transit = legs.filter { !TransitMode(productClass: $0.transportation?.product?.productClass).isWalking }
-        XCTAssertFalse(transit.isEmpty, "fixture has no transit leg")
-        for leg in transit {
-            XCTAssertGreaterThan(leg.coords?.count ?? 0, 2)
-            let first = try XCTUnwrap(leg.coords?.first)
-            XCTAssertEqual(first.count, 2)
-            XCTAssertTrue((-45...(-25)).contains(first[0]), "latitude \(first[0]) is not in NSW")
-            XCTAssertTrue((140...155).contains(first[1]), "longitude \(first[1]) is not in NSW")
-        }
-    }
-
-    func testTimesDecodeAsDates() throws {
-        let leg = try XCTUnwrap(decoded().journeys?.first?.legs?.first)
-        XCTAssertNotNil(leg.origin?.departureTimePlanned)
-        XCTAssertNotNil(leg.destination?.arrivalTimePlanned)
-    }
-
-    func testProductClassDecodesFromReservedKeyword() throws {
-        let legs = try XCTUnwrap(decoded().journeys?.first?.legs)
-        XCTAssertTrue(legs.contains { $0.transportation?.product?.productClass != nil })
-    }
-
-    func testStopSequenceCarriesNamedCoordinates() throws {
-        let legs = try XCTUnwrap(decoded().journeys?.first?.legs)
-        let withStops = try XCTUnwrap(legs.first { ($0.stopSequence?.count ?? 0) > 1 })
-        let stop = try XCTUnwrap(withStops.stopSequence?.first)
-        XCTAssertEqual(stop.coord?.count, 2)
-        XCTAssertNotNil(stop.name ?? stop.disassembledName)
+    func testMissingOrUnexpectedClassIsUnknown() {
+        XCTAssertEqual(TransitMode(productClass: nil), .unknown)
+        XCTAssertEqual(TransitMode(productClass: 42), .unknown)
+        XCTAssertFalse(TransitMode(productClass: nil).isWalking)
     }
 }
 ```
 
-- [ ] **Step 2: Push and confirm the tests fail**
-
-Expected: compile failure, "cannot find 'TripDTO' in scope".
-
-- [ ] **Step 3: Write `TfNSW/TripDTO.swift`**
+- [ ] **Step 4: Write `TfNSW/TripDTO.swift`**
 
 ```swift
 import Foundation
@@ -714,10 +597,10 @@ struct NamedDTO: Decodable {
 }
 
 extension JSONDecoder {
-    /// Every field on these DTOs is optional on purpose. The Trip Planner omits keys
-    /// rather than sending nulls, and it omits different ones depending on mode, time of
-    /// day, and whether a service is realtime-tracked. One missing key must never cost
-    /// the whole journey.
+    /// Every field on these DTOs is optional on purpose. The Trip Planner omits keys rather
+    /// than sending nulls, and it omits different ones depending on mode, time of day, and
+    /// whether a service is realtime-tracked. One missing key must never cost the whole
+    /// journey.
     static var tfnswDecoder: JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -726,109 +609,82 @@ extension JSONDecoder {
 }
 ```
 
-- [ ] **Step 4: Push and confirm the tests pass**
-
-```bash
-git add ios/Sources/App/TfNSW/TripDTO.swift ios/Tests/TripDecodingTests.swift
-git commit -m "Decode the TfNSW trip response against a captured fixture"
-git push
-```
-
-Expected: 11 tests passing. If `testTimesDecodeAsDates` fails, the API returned a fractional-seconds timestamp — swap `.iso8601` for a custom `DateFormatter` with format `yyyy-MM-dd'T'HH:mm:ssZ` and locale `en_US_POSIX`.
-
----
-
-### Task 5: The domain model
-
-DTOs mirror the wire format; the UI should never see them. This task is the boundary.
-
-**Files:**
-- Create: `ios/Sources/App/TfNSW/Journey.swift`
-- Test: `ios/Tests/JourneyMappingTests.swift`
-
-**Interfaces:**
-- Consumes: everything from Task 4, `TransitMode` from Task 3.
-- Produces:
-  - `struct Journey: Identifiable` — `id: Int`, `legs: [Leg]`, `departure: Date?`, `arrival: Date?`, `duration: TimeInterval?`, `transitLegs: [Leg]`
-  - `struct Leg: Identifiable` — `id: UUID`, `mode`, `route: String?`, `headsign: String?`, `originName: String`, `destinationName: String`, `plannedDeparture/estimatedDeparture/plannedArrival/estimatedArrival: Date?`, `hasRealtime: Bool`, `path: [CLLocationCoordinate2D]`, `stops: [LegStop]`, `durationSeconds: Int?`
-  - `var departure: Date?`, `var arrival: Date?`, `var delaySeconds: Int?` on `Leg`
-  - `struct LegStop: Identifiable` — `id: String`, `name: String`, `coordinate: CLLocationCoordinate2D`, `departure: Date?`
-  - `static func Journey.list(from: TripDTO) -> [Journey]`
-
-- [ ] **Step 1: Write the failing test**
-
-Create `ios/Tests/JourneyMappingTests.swift`:
+- [ ] **Step 5: Write `TfNSW/StopFinderDTO.swift`**
 
 ```swift
-import CoreLocation
+import Foundation
+
+struct StopFinderDTO: Decodable {
+    let locations: [LocationDTO]?
+}
+
+struct LocationDTO: Decodable {
+    let id: String?
+    let name: String?
+    let disassembledName: String?
+    let isBest: Bool?
+    let matchQuality: Int?
+}
+```
+
+- [ ] **Step 6: Write `ios/Tests/TripDecodingTests.swift`**
+
+```swift
 import XCTest
 @testable import NextStop
 
-final class JourneyMappingTests: XCTestCase {
-    private func journeys() throws -> [Journey] {
-        let dto = try JSONDecoder.tfnswDecoder.decode(TripDTO.self, from: Fixture.data("trip-sample"))
-        return Journey.list(from: dto)
+final class TripDecodingTests: XCTestCase {
+    private func decoded() throws -> TripDTO {
+        try JSONDecoder.tfnswDecoder.decode(TripDTO.self, from: Fixture.data("trip-sample"))
     }
 
-    func testJourneysAreBuiltWithLegs() throws {
-        let all = try journeys()
-        XCTAssertFalse(all.isEmpty)
-        XCTAssertFalse(all[0].legs.isEmpty)
-        XCTAssertEqual(Set(all.map(\.id)).count, all.count, "journey ids must be unique")
+    func testJourneysAndLegsDecode() throws {
+        let journeys = try XCTUnwrap(decoded().journeys)
+        XCTAssertFalse(journeys.isEmpty)
+        XCTAssertFalse(try XCTUnwrap(journeys[0].legs).isEmpty)
     }
 
-    func testPathIsConvertedToCoordinates() throws {
-        let transit = try XCTUnwrap(journeys().first?.transitLegs.first)
-        XCTAssertGreaterThan(transit.path.count, 2)
-        XCTAssertTrue((-45...(-25)).contains(transit.path[0].latitude))
-    }
-
-    func testDepartureFallsBackToPlannedWhenNoEstimate() {
-        let planned = Date(timeIntervalSince1970: 1_000_000)
-        let leg = Leg(
-            mode: .bus, route: "412", headsign: "USyd",
-            originName: "A", destinationName: "B",
-            plannedDeparture: planned, estimatedDeparture: nil,
-            plannedArrival: nil, estimatedArrival: nil,
-            hasRealtime: false, path: [], stops: [], durationSeconds: 600
-        )
-        XCTAssertEqual(leg.departure, planned)
-        XCTAssertNil(leg.delaySeconds)
-    }
-
-    func testDelayIsTheDifferenceBetweenEstimateAndPlan() {
-        let planned = Date(timeIntervalSince1970: 1_000_000)
-        let leg = Leg(
-            mode: .bus, route: "412", headsign: "USyd",
-            originName: "A", destinationName: "B",
-            plannedDeparture: planned, estimatedDeparture: planned.addingTimeInterval(180),
-            plannedArrival: nil, estimatedArrival: nil,
-            hasRealtime: true, path: [], stops: [], durationSeconds: 600
-        )
-        XCTAssertEqual(leg.delaySeconds, 180)
-        XCTAssertEqual(leg.departure, planned.addingTimeInterval(180))
-    }
-
-    func testJourneySpansFirstDepartureToLastArrival() throws {
-        let journey = try XCTUnwrap(journeys().first)
-        XCTAssertNotNil(journey.departure)
-        XCTAssertNotNil(journey.arrival)
-        if let d = journey.departure, let a = journey.arrival {
-            XCTAssertGreaterThan(a, d)
+    /// `coords` is what makes a real map possible. A leg drawn as a straight line between
+    /// two stops is the failure this test exists to catch.
+    func testTransitLegsCarryRouteGeometry() throws {
+        let legs = try XCTUnwrap(decoded().journeys?.first?.legs)
+        let transit = legs.filter { !TransitMode(productClass: $0.transportation?.product?.productClass).isWalking }
+        XCTAssertFalse(transit.isEmpty, "fixture has no transit leg")
+        for leg in transit {
+            XCTAssertGreaterThan(leg.coords?.count ?? 0, 2)
+            let first = try XCTUnwrap(leg.coords?.first)
+            XCTAssertEqual(first.count, 2)
+            XCTAssertTrue((-45...(-25)).contains(first[0]), "latitude \(first[0]) is not in NSW")
+            XCTAssertTrue((140...155).contains(first[1]), "longitude \(first[1]) is not in NSW")
         }
     }
 
-    func testWalkingLegsAreExcludedFromTransitLegs() throws {
-        for journey in try journeys() {
-            XCTAssertFalse(journey.transitLegs.contains { $0.mode.isWalking })
-        }
+    func testTimesDecodeAsDates() throws {
+        let leg = try XCTUnwrap(decoded().journeys?.first?.legs?.first)
+        XCTAssertNotNil(leg.origin?.departureTimePlanned)
+        XCTAssertNotNil(leg.destination?.arrivalTimePlanned)
+    }
+
+    func testProductClassDecodesFromReservedKeyword() throws {
+        let legs = try XCTUnwrap(decoded().journeys?.first?.legs)
+        XCTAssertTrue(legs.contains { $0.transportation?.product?.productClass != nil })
+    }
+
+    func testStopSequenceCarriesNamedCoordinates() throws {
+        let legs = try XCTUnwrap(decoded().journeys?.first?.legs)
+        let withStops = try XCTUnwrap(legs.first { ($0.stopSequence?.count ?? 0) > 1 })
+        let stop = try XCTUnwrap(withStops.stopSequence?.first)
+        XCTAssertEqual(stop.coord?.count, 2)
+        XCTAssertNotNil(stop.name ?? stop.disassembledName)
     }
 }
 ```
 
-- [ ] **Step 2: Push and confirm the tests fail**
+If `testTimesDecodeAsDates` fails, the API returned fractional seconds — swap `.iso8601` for a `DateFormatter` with format `yyyy-MM-dd'T'HH:mm:ssZ` and locale `en_US_POSIX`.
 
-- [ ] **Step 3: Write `TfNSW/Journey.swift`**
+- [ ] **Step 7: Write `TfNSW/Journey.swift`**
+
+Both `id`s are **derived from planned times, never from `UUID()` or an array index.** The journey screen re-plans every 30 seconds; a fresh identity each time makes SwiftUI tear down and rebuild every row, and makes "which legs has the user already rated?" unanswerable. Planned times do not move between refreshes. Estimated times do, which is exactly why they are not part of the key.
 
 ```swift
 import CoreLocation
@@ -842,7 +698,7 @@ struct LegStop: Identifiable {
 }
 
 struct Leg: Identifiable {
-    let id = UUID()
+    let id: String
     let mode: TransitMode
     let route: String?
     let headsign: String?
@@ -869,7 +725,7 @@ struct Leg: Identifiable {
 }
 
 struct Journey: Identifiable {
-    let id: Int
+    let id: String
     let legs: [Leg]
 
     var departure: Date? { legs.first?.departure }
@@ -882,9 +738,10 @@ struct Journey: Identifiable {
     }
 
     static func list(from dto: TripDTO) -> [Journey] {
-        (dto.journeys ?? []).enumerated().compactMap { index, journey in
+        (dto.journeys ?? []).compactMap { journey in
             let legs = (journey.legs ?? []).map(Leg.init(dto:))
-            return legs.isEmpty ? nil : Journey(id: index, legs: legs)
+            guard !legs.isEmpty else { return nil }
+            return Journey(id: legs.map(\.id).joined(separator: "|"), legs: legs)
         }
     }
 }
@@ -902,13 +759,19 @@ extension Leg {
     init(dto: LegDTO) {
         let transportation = dto.transportation
         let mode = TransitMode(productClass: transportation?.product?.productClass)
+        let route = transportation?.number ?? transportation?.disassembledName
+        let originName = dto.origin?.disassembledName ?? dto.origin?.name ?? ""
+        let planned = dto.origin?.departureTimePlanned
+        let plannedKey = planned.map { String(Int($0.timeIntervalSince1970)) } ?? "?"
+
         self.init(
+            id: "\(mode)|\(route ?? "")|\(originName)|\(plannedKey)",
             mode: mode,
-            route: transportation?.number ?? transportation?.disassembledName,
+            route: route,
             headsign: transportation?.destination?.name,
-            originName: dto.origin?.disassembledName ?? dto.origin?.name ?? "",
+            originName: originName,
             destinationName: dto.destination?.disassembledName ?? dto.destination?.name ?? "",
-            plannedDeparture: dto.origin?.departureTimePlanned,
+            plannedDeparture: planned,
             estimatedDeparture: dto.origin?.departureTimeEstimated,
             plannedArrival: dto.destination?.arrivalTimePlanned,
             estimatedArrival: dto.destination?.arrivalTimeEstimated,
@@ -933,74 +796,112 @@ extension LegStop {
 }
 ```
 
-- [ ] **Step 4: Push and confirm the tests pass**
-
-```bash
-git add ios/Sources/App/TfNSW/Journey.swift ios/Tests/JourneyMappingTests.swift
-git commit -m "Map trip DTOs onto a journey domain model"
-git push
-```
-
-Expected: 17 tests passing.
-
----
-
-### Task 6: Keychain storage for the API key
-
-**Files:**
-- Create: `ios/Sources/App/Storage/KeychainStore.swift`
-- Test: `ios/Tests/KeychainStoreTests.swift`
-
-**Interfaces:**
-- Produces: `enum KeychainStore` with `static func save(_ key: String) throws`, `static func read() -> String?`, `static func delete()`, and `struct KeychainError: Error { let status: OSStatus }`
-
-- [ ] **Step 1: Write the failing test**
-
-Create `ios/Tests/KeychainStoreTests.swift`:
+- [ ] **Step 8: Write `ios/Tests/JourneyMappingTests.swift`**
 
 ```swift
+import CoreLocation
 import XCTest
 @testable import NextStop
 
-final class KeychainStoreTests: XCTestCase {
-    override func setUp() {
-        super.setUp()
-        KeychainStore.delete()
+final class JourneyMappingTests: XCTestCase {
+    private func journeys() throws -> [Journey] {
+        let dto = try JSONDecoder.tfnswDecoder.decode(TripDTO.self, from: Fixture.data("trip-sample"))
+        return Journey.list(from: dto)
     }
 
-    override func tearDown() {
-        KeychainStore.delete()
-        super.tearDown()
+    private func leg(planned: Date?, estimated: Date?, realtime: Bool) -> Leg {
+        Leg(
+            id: "test", mode: .bus, route: "412", headsign: "USyd",
+            originName: "A", destinationName: "B",
+            plannedDeparture: planned, estimatedDeparture: estimated,
+            plannedArrival: nil, estimatedArrival: nil,
+            hasRealtime: realtime, path: [], stops: [], durationSeconds: 600
+        )
     }
 
-    func testReadReturnsNilWhenNothingStored() {
-        XCTAssertNil(KeychainStore.read())
+    func testJourneysAreBuiltWithLegs() throws {
+        let all = try journeys()
+        XCTAssertFalse(all.isEmpty)
+        XCTAssertFalse(all[0].legs.isEmpty)
+        XCTAssertEqual(Set(all.map(\.id)).count, all.count, "journey ids must be unique")
     }
 
-    func testSavedKeyReadsBack() throws {
-        try KeychainStore.save("abc123")
-        XCTAssertEqual(KeychainStore.read(), "abc123")
+    /// Decoding the same payload twice must produce the same ids. The live screen re-plans
+    /// every 30s; unstable ids make SwiftUI rebuild every row and lose which legs the user
+    /// has already rated.
+    func testIdsAreStableAcrossDecodes() throws {
+        XCTAssertEqual(try journeys().map(\.id), try journeys().map(\.id))
+        XCTAssertEqual(try journeys()[0].legs.map(\.id), try journeys()[0].legs.map(\.id))
     }
 
-    /// Saving twice must overwrite rather than fail with errSecDuplicateItem, which is
-    /// what a plain SecItemAdd does.
-    func testSavingTwiceOverwrites() throws {
-        try KeychainStore.save("first")
-        try KeychainStore.save("second")
-        XCTAssertEqual(KeychainStore.read(), "second")
+    func testPathIsConvertedToCoordinates() throws {
+        let transit = try XCTUnwrap(journeys().first?.transitLegs.first)
+        XCTAssertGreaterThan(transit.path.count, 2)
+        XCTAssertTrue((-45...(-25)).contains(transit.path[0].latitude))
     }
 
-    func testDeleteRemovesTheKey() throws {
-        try KeychainStore.save("abc123")
-        KeychainStore.delete()
-        XCTAssertNil(KeychainStore.read())
+    func testDepartureFallsBackToPlannedWhenNoEstimate() {
+        let planned = Date(timeIntervalSince1970: 1_000_000)
+        let subject = leg(planned: planned, estimated: nil, realtime: false)
+        XCTAssertEqual(subject.departure, planned)
+        XCTAssertNil(subject.delaySeconds)
+    }
+
+    func testDelayIsTheDifferenceBetweenEstimateAndPlan() {
+        let planned = Date(timeIntervalSince1970: 1_000_000)
+        let subject = leg(planned: planned, estimated: planned.addingTimeInterval(180), realtime: true)
+        XCTAssertEqual(subject.delaySeconds, 180)
+        XCTAssertEqual(subject.departure, planned.addingTimeInterval(180))
+    }
+
+    func testJourneySpansFirstDepartureToLastArrival() throws {
+        let journey = try XCTUnwrap(journeys().first)
+        let departure = try XCTUnwrap(journey.departure)
+        let arrival = try XCTUnwrap(journey.arrival)
+        XCTAssertGreaterThan(arrival, departure)
+    }
+
+    func testWalkingLegsAreExcludedFromTransitLegs() throws {
+        for journey in try journeys() {
+            XCTAssertFalse(journey.transitLegs.contains { $0.mode.isWalking })
+        }
     }
 }
 ```
 
-- [ ] **Step 2: Push and confirm the tests fail**
+- [ ] **Step 9: Commit and push**
 
-- [ ] **Step 3: Write `Storage/KeychainStore.swift`**
+```bash
+git add ios/Sources/App/Theme.swift ios/Sources/App/TfNSW ios/Tests
+git commit -m "Add theme tokens, mode mapping, and the journey domain model"
+git push
+```
+
+Expected: `FixtureLoaderTests`, `TransitModeTests` (3), `TripDecodingTests` (5), `JourneyMappingTests` (7) all pass.
+
+- [ ] **Step 10: Confirm the three unverified mode colours**
+
+Train `#F6891F`, Metro `#168388` and Light Rail `#DD1E25` are confirmed and must not be changed. **Bus `#00B5EF`, Ferry `#5AB031` and Coach `#732A82` are not.** Check them against the *Transport Mode Symbols and Pictograms* dataset on data.nsw.gov.au, which ships the official artwork, and correct any that differ. Bus is the mode the daily commute depends on most.
+
+---
+
+### Task 4 — PUSH 3: Keychain, API client, and local storage
+
+**Files:**
+- Create: `ios/Sources/App/Storage/KeychainStore.swift`, `ios/Sources/App/Storage/Feedback.swift`, `ios/Sources/App/Storage/LocalStore.swift`, `ios/Sources/App/TfNSW/TfNSWClient.swift`
+- Test: `ios/Tests/KeychainStoreTests.swift`, `ios/Tests/TfNSWClientTests.swift`, `ios/Tests/LocalStoreTests.swift`
+
+**Interfaces:**
+- Produces:
+  - `enum KeychainStore` — `save(_:) throws`, `read() -> String?`, `delete()`; `struct KeychainError: Error { let status: OSStatus }`
+  - `protocol HTTPFetching { func fetch(_ request: URLRequest) async throws -> (Data, URLResponse) }`, `extension URLSession: HTTPFetching`
+  - `struct TfNSWClient` — `init(session:keyProvider:)`, `makeRequest(path:query:) throws -> URLRequest`, `journeys(originID:originType:destinationID:destinationType:departing:) async throws -> [Journey]`, `findStops(matching:) async throws -> [StopSuggestion]`
+  - `enum TfNSWError: Error, Equatable { case missingKey, unauthorised, http(Int), transport }`
+  - `struct StopSuggestion: Identifiable, Codable, Hashable { let id: String; let name: String; let isBest: Bool }`
+  - `struct PredictionFeedback: Codable, Identifiable` + `init(leg:wasCorrect:tappedAt:)`
+  - `final class LocalStore: ObservableObject` — `init(fileURL:)`, `static let shared`, `@Published private(set) recents/saved/feedback`, `addRecent(_:)`, `toggleSaved(_:)`, `isSaved(_:)`, `record(_:)`, `exportFeedbackJSON() throws -> Data`
+
+- [ ] **Step 1: Write `Storage/KeychainStore.swift`**
 
 ```swift
 import Foundation
@@ -1025,11 +926,11 @@ enum KeychainStore {
     }
 
     static func save(_ key: String) throws {
+        // Delete-then-add rather than a bare SecItemAdd, which returns errSecDuplicateItem
+        // the second time the user pastes a key.
         delete()
         var query = baseQuery
         query[kSecValueData as String] = Data(key.utf8)
-        // Without a device passcode the default accessibility class silently fails to
-        // store, so this is the one that works on every device the app can run on.
         query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else { throw KeychainError(status: status) }
@@ -1052,59 +953,181 @@ enum KeychainStore {
 }
 ```
 
-- [ ] **Step 4: Push and confirm the tests pass**
+- [ ] **Step 2: Write `ios/Tests/KeychainStoreTests.swift`**
 
-```bash
-git add ios/Sources/App/Storage/KeychainStore.swift ios/Tests/KeychainStoreTests.swift
-git commit -m "Store the TfNSW key in the Keychain"
-git push
-```
-
-Expected: 21 tests passing.
-
-If every Keychain test fails with `OSStatus -34018` (`errSecMissingEntitlement`), the tests are running without a host application, so there is no keychain access group. Fix it by giving the test target a host — in `ios/project.yml`, under `NextStopTests`, replace the `dependencies:` block with:
-
-```yaml
-    dependencies:
-      - target: NextStop
-    settings:
-      base:
-        GENERATE_INFOPLIST_FILE: YES
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/NextStop.app/NextStop"
-        BUNDLE_LOADER: "$(TEST_HOST)"
-```
-
----
-
-### Task 7: The API client
-
-**Files:**
-- Create: `ios/Sources/App/TfNSW/TfNSWClient.swift`
-- Test: `ios/Tests/TfNSWClientTests.swift`
-
-**Interfaces:**
-- Consumes: `KeychainStore` (Task 6), `TripDTO` (Task 4), `Journey` (Task 5).
-- Produces:
-  - `protocol HTTPFetching { func data(for request: URLRequest) async throws -> (Data, URLResponse) }` with `URLSession: HTTPFetching`
-  - `struct TfNSWClient { init(session: HTTPFetching = URLSession.shared, keyProvider: @escaping () -> String? = KeychainStore.read) }`
-  - `func journeys(originID: String, destinationID: String, departing: Date) async throws -> [Journey]`
-  - `func findStops(matching query: String) async throws -> [StopSuggestion]`
-  - `enum TfNSWError: Error, Equatable { case missingKey, unauthorised, http(Int), transport }`
-  - `struct StopSuggestion: Identifiable, Codable, Hashable { let id: String; let name: String; let isBest: Bool }`
-  - `func makeRequest(path: String, query: [URLQueryItem]) throws -> URLRequest` (internal, so tests can assert on it)
-
-- [ ] **Step 1: Write the failing test**
-
-Create `ios/Tests/TfNSWClientTests.swift`:
+Two tests, not four. Round-tripping a value through Apple's Keychain tests Apple's code. These two cover a decision that was actually made (delete-then-add) and the first-run path the UI depends on.
 
 ```swift
 import XCTest
 @testable import NextStop
 
-private struct StubFetcher: HTTPFetching {
+final class KeychainStoreTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        KeychainStore.delete()
+    }
+
+    override func tearDown() {
+        KeychainStore.delete()
+        super.tearDown()
+    }
+
+    /// Settings opens automatically when this returns nil, so it is load-bearing.
+    func testReadReturnsNilWhenNothingStored() {
+        XCTAssertNil(KeychainStore.read())
+    }
+
+    func testSavingTwiceOverwrites() throws {
+        try KeychainStore.save("first")
+        try KeychainStore.save("second")
+        XCTAssertEqual(KeychainStore.read(), "second")
+    }
+}
+```
+
+- [ ] **Step 3: Write `TfNSW/TfNSWClient.swift`**
+
+`HTTPFetching` declares `fetch(_:)` rather than `data(for:)`. `URLSession`'s real method is `data(for:delegate:)`, whose full name differs from `data(for:)`, so it would not satisfy the requirement — the explicit forwarding method sidesteps the question entirely.
+
+Origin and destination types are parameters defaulting to `"stop"`, mirroring the proven Python client at `collector/src/nextstop_collector/tfnsw/client.py:166-189`. A coordinate origin needs `"coord"` and is passed explicitly in Task 5.
+
+```swift
+import Foundation
+
+enum TfNSWError: Error, Equatable {
+    case missingKey
+    case unauthorised
+    case http(Int)
+    case transport
+}
+
+struct StopSuggestion: Identifiable, Codable, Hashable {
+    let id: String
+    let name: String
+    let isBest: Bool
+}
+
+protocol HTTPFetching {
+    func fetch(_ request: URLRequest) async throws -> (Data, URLResponse)
+}
+
+extension URLSession: HTTPFetching {
+    func fetch(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        try await data(for: request)
+    }
+}
+
+struct TfNSWClient {
+    private static let base = URL(string: "https://api.transport.nsw.gov.au/v1/tp/")!
+
+    private let session: HTTPFetching
+    private let keyProvider: () -> String?
+
+    init(session: HTTPFetching = URLSession.shared, keyProvider: @escaping () -> String? = KeychainStore.read) {
+        self.session = session
+        self.keyProvider = keyProvider
+    }
+
+    func makeRequest(path: String, query: [URLQueryItem]) throws -> URLRequest {
+        guard let key = keyProvider(), !key.isEmpty else { throw TfNSWError.missingKey }
+
+        var components = URLComponents(url: Self.base.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "outputFormat", value: "rapidJSON"),
+            URLQueryItem(name: "coordOutputFormat", value: "EPSG:4326"),
+        ] + query
+
+        var request = URLRequest(url: components.url!)
+        request.setValue("apikey \(key)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 20
+        return request
+    }
+
+    func journeys(
+        originID: String,
+        originType: String = "stop",
+        destinationID: String,
+        destinationType: String = "stop",
+        departing: Date
+    ) async throws -> [Journey] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Australia/Sydney")!
+        let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: departing)
+
+        let request = try makeRequest(path: "trip", query: [
+            URLQueryItem(name: "depArrMacro", value: "dep"),
+            URLQueryItem(name: "itdDate", value: String(format: "%04d%02d%02d", parts.year!, parts.month!, parts.day!)),
+            URLQueryItem(name: "itdTime", value: String(format: "%02d%02d", parts.hour!, parts.minute!)),
+            URLQueryItem(name: "type_origin", value: originType),
+            URLQueryItem(name: "name_origin", value: originID),
+            URLQueryItem(name: "type_destination", value: destinationType),
+            URLQueryItem(name: "name_destination", value: destinationID),
+            URLQueryItem(name: "TfNSWTR", value: "true"),
+        ])
+
+        let dto: TripDTO = try await send(request)
+        return Journey.list(from: dto)
+    }
+
+    func findStops(matching query: String) async throws -> [StopSuggestion] {
+        let request = try makeRequest(path: "stop_finder", query: [
+            URLQueryItem(name: "type_sf", value: "any"),
+            URLQueryItem(name: "name_sf", value: query),
+            URLQueryItem(name: "anyMaxSizeHitList", value: "12"),
+        ])
+
+        let dto: StopFinderDTO = try await send(request)
+        return (dto.locations ?? [])
+            .compactMap { location -> (StopSuggestion, Int)? in
+                guard let id = location.id,
+                      let name = location.disassembledName ?? location.name else { return nil }
+                return (
+                    StopSuggestion(id: id, name: name, isBest: location.isBest ?? false),
+                    location.matchQuality ?? 0
+                )
+            }
+            .sorted { left, right in
+                if left.0.isBest != right.0.isBest { return left.0.isBest }
+                return left.1 > right.1
+            }
+            .map(\.0)
+    }
+
+    private func send<T: Decodable>(_ request: URLRequest) async throws -> T {
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.fetch(request)
+        } catch {
+            throw TfNSWError.transport
+        }
+
+        guard let http = response as? HTTPURLResponse else { throw TfNSWError.transport }
+        // 401 and 403 both mean the key is wrong or unsubscribed, and both need the user
+        // sent to Settings rather than shown a retry button.
+        if http.statusCode == 401 || http.statusCode == 403 { throw TfNSWError.unauthorised }
+        guard http.statusCode == 200 else { throw TfNSWError.http(http.statusCode) }
+
+        do {
+            return try JSONDecoder.tfnswDecoder.decode(T.self, from: data)
+        } catch {
+            throw TfNSWError.transport
+        }
+    }
+}
+```
+
+- [ ] **Step 4: Write `ios/Tests/TfNSWClientTests.swift`**
+
+```swift
+import XCTest
+@testable import NextStop
+
+struct StubFetcher: HTTPFetching {
     var status: Int = 200
     var payload: Data = Data()
-    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+    func fetch(_ request: URLRequest) async throws -> (Data, URLResponse) {
         let response = HTTPURLResponse(
             url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil
         )!
@@ -1118,9 +1141,21 @@ final class TfNSWClientTests: XCTestCase {
         let request = try client.makeRequest(path: "trip", query: [URLQueryItem(name: "a", value: "b")])
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "apikey secret")
         let url = try XCTUnwrap(request.url?.absoluteString)
+        XCTAssertTrue(url.hasPrefix("https://api.transport.nsw.gov.au/v1/tp/trip"))
         XCTAssertTrue(url.contains("outputFormat=rapidJSON"))
         XCTAssertTrue(url.contains("coordOutputFormat=EPSG:4326") || url.contains("coordOutputFormat=EPSG%3A4326"))
-        XCTAssertTrue(url.hasPrefix("https://api.transport.nsw.gov.au/v1/tp/trip"))
+    }
+
+    /// A coordinate origin needs type_origin=coord; sending it with the default "stop"
+    /// fails on device only, after a Codemagic build and a TestFlight install.
+    func testOriginTypeIsSentAsGiven() async throws {
+        let client = TfNSWClient(session: StubFetcher(payload: Fixture.data("trip-sample")), keyProvider: { "k" })
+        let request = try client.makeRequest(path: "trip", query: [
+            URLQueryItem(name: "type_origin", value: "coord"),
+            URLQueryItem(name: "name_origin", value: "151.180400:-33.796900:EPSG:4326"),
+        ])
+        let url = try XCTUnwrap(request.url?.absoluteString)
+        XCTAssertTrue(url.contains("type_origin=coord"))
     }
 
     func testMissingKeyIsItsOwnError() async {
@@ -1170,279 +1205,7 @@ final class TfNSWClientTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2: Push and confirm the tests fail**
-
-- [ ] **Step 3: Write `TfNSW/StopFinderDTO.swift`**
-
-```swift
-import Foundation
-
-struct StopFinderDTO: Decodable {
-    let locations: [LocationDTO]?
-}
-
-struct LocationDTO: Decodable {
-    let id: String?
-    let name: String?
-    let disassembledName: String?
-    let isBest: Bool?
-    let matchQuality: Int?
-}
-```
-
-- [ ] **Step 4: Write `TfNSW/TfNSWClient.swift`**
-
-```swift
-import Foundation
-
-enum TfNSWError: Error, Equatable {
-    case missingKey
-    case unauthorised
-    case http(Int)
-    case transport
-}
-
-struct StopSuggestion: Identifiable, Codable, Hashable {
-    let id: String
-    let name: String
-    let isBest: Bool
-}
-
-protocol HTTPFetching {
-    func data(for request: URLRequest) async throws -> (Data, URLResponse)
-}
-
-extension URLSession: HTTPFetching {}
-
-struct TfNSWClient {
-    private static let base = URL(string: "https://api.transport.nsw.gov.au/v1/tp/")!
-
-    private let session: HTTPFetching
-    private let keyProvider: () -> String?
-
-    init(session: HTTPFetching = URLSession.shared, keyProvider: @escaping () -> String? = KeychainStore.read) {
-        self.session = session
-        self.keyProvider = keyProvider
-    }
-
-    func makeRequest(path: String, query: [URLQueryItem]) throws -> URLRequest {
-        guard let key = keyProvider(), !key.isEmpty else { throw TfNSWError.missingKey }
-
-        var components = URLComponents(url: Self.base.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
-        components.queryItems = [
-            URLQueryItem(name: "outputFormat", value: "rapidJSON"),
-            URLQueryItem(name: "coordOutputFormat", value: "EPSG:4326"),
-        ] + query
-
-        var request = URLRequest(url: components.url!)
-        request.setValue("apikey \(key)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 20
-        return request
-    }
-
-    func journeys(originID: String, destinationID: String, departing: Date) async throws -> [Journey] {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "Australia/Sydney")!
-        let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: departing)
-
-        let request = try makeRequest(path: "trip", query: [
-            URLQueryItem(name: "depArrMacro", value: "dep"),
-            URLQueryItem(name: "itdDate", value: String(format: "%04d%02d%02d", parts.year!, parts.month!, parts.day!)),
-            URLQueryItem(name: "itdTime", value: String(format: "%02d%02d", parts.hour!, parts.minute!)),
-            URLQueryItem(name: "type_origin", value: "any"),
-            URLQueryItem(name: "name_origin", value: originID),
-            URLQueryItem(name: "type_destination", value: "any"),
-            URLQueryItem(name: "name_destination", value: destinationID),
-            URLQueryItem(name: "TfNSWTR", value: "true"),
-        ])
-
-        let dto: TripDTO = try await send(request)
-        return Journey.list(from: dto)
-    }
-
-    func findStops(matching query: String) async throws -> [StopSuggestion] {
-        let request = try makeRequest(path: "stop_finder", query: [
-            URLQueryItem(name: "type_sf", value: "any"),
-            URLQueryItem(name: "name_sf", value: query),
-            URLQueryItem(name: "anyMaxSizeHitList", value: "12"),
-        ])
-
-        let dto: StopFinderDTO = try await send(request)
-        return (dto.locations ?? [])
-            .compactMap { location in
-                guard let id = location.id,
-                      let name = location.disassembledName ?? location.name else { return nil }
-                return (StopSuggestion(id: id, name: name, isBest: location.isBest ?? false), location.matchQuality ?? 0)
-            }
-            .sorted { left, right in
-                if left.0.isBest != right.0.isBest { return left.0.isBest }
-                return left.1 > right.1
-            }
-            .map(\.0)
-    }
-
-    private func send<T: Decodable>(_ request: URLRequest) async throws -> T {
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch {
-            throw TfNSWError.transport
-        }
-
-        guard let http = response as? HTTPURLResponse else { throw TfNSWError.transport }
-        // 401 and 403 both mean the key is wrong or unsubscribed, and both need the user
-        // sent to Settings rather than shown a retry button.
-        if http.statusCode == 401 || http.statusCode == 403 { throw TfNSWError.unauthorised }
-        guard http.statusCode == 200 else { throw TfNSWError.http(http.statusCode) }
-
-        do {
-            return try JSONDecoder.tfnswDecoder.decode(T.self, from: data)
-        } catch {
-            throw TfNSWError.transport
-        }
-    }
-}
-```
-
-- [ ] **Step 5: Push and confirm the tests pass**
-
-```bash
-git add ios/Sources/App/TfNSW/TfNSWClient.swift ios/Sources/App/TfNSW/StopFinderDTO.swift ios/Tests/TfNSWClientTests.swift
-git commit -m "Add the TfNSW API client"
-git push
-```
-
-Expected: 26 tests passing.
-
----
-
-### Task 8: Local storage for recents, saved places, and feedback
-
-A JSON file, not SwiftData. Fifty rows of personal data do not need a schema, a migration story, or a model container.
-
-**Files:**
-- Create: `ios/Sources/App/Storage/Feedback.swift`
-- Create: `ios/Sources/App/Storage/LocalStore.swift`
-- Test: `ios/Tests/LocalStoreTests.swift`
-
-**Interfaces:**
-- Consumes: `StopSuggestion` (Task 7), `Leg` (Task 5).
-- Produces:
-  - `struct PredictionFeedback: Codable, Identifiable` — `id: UUID`, `recordedAt: Date`, `wasCorrect: Bool`, `mode: String`, `route: String?`, `originName: String`, `destinationName: String`, `plannedDeparture: Date?`, `estimatedDeparture: Date?`, `hadRealtime: Bool`, `errorSeconds: Int?`
-  - `init(leg: Leg, wasCorrect: Bool, tappedAt: Date)`
-  - `final class LocalStore: ObservableObject` — `init(fileURL: URL)`, `static let shared`, `@Published private(set) var recents: [StopSuggestion]`, `@Published private(set) var saved: [StopSuggestion]`, `@Published private(set) var feedback: [PredictionFeedback]`
-  - `func addRecent(_:)`, `func toggleSaved(_:)`, `func isSaved(_:) -> Bool`, `func record(_ feedback: PredictionFeedback)`, `func exportFeedbackJSON() throws -> Data`
-
-- [ ] **Step 1: Write the failing test**
-
-Create `ios/Tests/LocalStoreTests.swift`:
-
-```swift
-import XCTest
-@testable import NextStop
-
-final class LocalStoreTests: XCTestCase {
-    private var url: URL!
-
-    override func setUpWithError() throws {
-        url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("store-\(UUID().uuidString).json")
-    }
-
-    override func tearDownWithError() throws {
-        try? FileManager.default.removeItem(at: url)
-    }
-
-    private func suggestion(_ id: String) -> StopSuggestion {
-        StopSuggestion(id: id, name: "Stop \(id)", isBest: false)
-    }
-
-    func testStartsEmpty() {
-        let store = LocalStore(fileURL: url)
-        XCTAssertTrue(store.recents.isEmpty)
-        XCTAssertTrue(store.saved.isEmpty)
-        XCTAssertTrue(store.feedback.isEmpty)
-    }
-
-    func testRecentsAreMostRecentFirstAndDeduplicated() {
-        let store = LocalStore(fileURL: url)
-        store.addRecent(suggestion("a"))
-        store.addRecent(suggestion("b"))
-        store.addRecent(suggestion("a"))
-        XCTAssertEqual(store.recents.map(\.id), ["a", "b"])
-    }
-
-    func testRecentsAreCappedAtTen() {
-        let store = LocalStore(fileURL: url)
-        for index in 0..<15 { store.addRecent(suggestion("\(index)")) }
-        XCTAssertEqual(store.recents.count, 10)
-        XCTAssertEqual(store.recents.first?.id, "14")
-    }
-
-    func testSavedTogglesBothWays() {
-        let store = LocalStore(fileURL: url)
-        store.toggleSaved(suggestion("a"))
-        XCTAssertTrue(store.isSaved(suggestion("a")))
-        store.toggleSaved(suggestion("a"))
-        XCTAssertFalse(store.isSaved(suggestion("a")))
-    }
-
-    func testEverythingSurvivesAReload() throws {
-        let store = LocalStore(fileURL: url)
-        store.addRecent(suggestion("a"))
-        store.toggleSaved(suggestion("b"))
-        store.record(PredictionFeedback(
-            id: UUID(), recordedAt: Date(), wasCorrect: false, mode: "Bus", route: "412",
-            originName: "Railway Square", destinationName: "USyd",
-            plannedDeparture: nil, estimatedDeparture: nil, hadRealtime: true, errorSeconds: 120
-        ))
-
-        let reloaded = LocalStore(fileURL: url)
-        XCTAssertEqual(reloaded.recents.map(\.id), ["a"])
-        XCTAssertEqual(reloaded.saved.map(\.id), ["b"])
-        XCTAssertEqual(reloaded.feedback.count, 1)
-        XCTAssertEqual(reloaded.feedback[0].errorSeconds, 120)
-    }
-
-    /// A tap is worth more than a verdict: the gap between the predicted departure and
-    /// the moment the user tapped is the measurable error.
-    func testFeedbackFromALegComputesErrorAgainstTheTapTime() {
-        let planned = Date(timeIntervalSince1970: 1_000_000)
-        let leg = Leg(
-            mode: .bus, route: "412", headsign: "USyd",
-            originName: "Railway Square", destinationName: "USyd",
-            plannedDeparture: planned, estimatedDeparture: planned.addingTimeInterval(60),
-            plannedArrival: nil, estimatedArrival: nil,
-            hasRealtime: true, path: [], stops: [], durationSeconds: 600
-        )
-        let feedback = PredictionFeedback(
-            leg: leg, wasCorrect: true, tappedAt: planned.addingTimeInterval(150)
-        )
-        XCTAssertEqual(feedback.errorSeconds, 90)
-        XCTAssertEqual(feedback.mode, "Bus")
-        XCTAssertTrue(feedback.hadRealtime)
-    }
-
-    func testExportIsDecodableJSON() throws {
-        let store = LocalStore(fileURL: url)
-        store.record(PredictionFeedback(
-            id: UUID(), recordedAt: Date(), wasCorrect: true, mode: "Metro", route: "M1",
-            originName: "Chatswood", destinationName: "Central",
-            plannedDeparture: nil, estimatedDeparture: nil, hadRealtime: true, errorSeconds: 0
-        ))
-        let data = try store.exportFeedbackJSON()
-        let decoded = try JSONDecoder.tfnswDecoder.decode([PredictionFeedback].self, from: data)
-        XCTAssertEqual(decoded.count, 1)
-        XCTAssertEqual(decoded[0].mode, "Metro")
-    }
-}
-```
-
-- [ ] **Step 2: Push and confirm the tests fail**
-
-- [ ] **Step 3: Write `Storage/Feedback.swift`**
+- [ ] **Step 5: Write `Storage/Feedback.swift`**
 
 ```swift
 import Foundation
@@ -1481,14 +1244,14 @@ extension PredictionFeedback {
 }
 ```
 
-- [ ] **Step 4: Write `Storage/LocalStore.swift`**
+- [ ] **Step 6: Write `Storage/LocalStore.swift`**
 
 ```swift
 import Foundation
 
-/// One JSON file in Documents. Not SwiftData: this holds tens of rows of personal data
-/// with no relationships and no queries, and a model container would be more moving parts
-/// than the whole feature.
+/// One JSON file in Documents. Not SwiftData: this holds tens of rows of personal data with
+/// no relationships and no queries, and a model container would be more moving parts than
+/// the whole feature.
 final class LocalStore: ObservableObject {
     private struct Contents: Codable {
         var recents: [StopSuggestion] = []
@@ -1513,8 +1276,9 @@ final class LocalStore: ObservableObject {
 
     init(fileURL: URL) {
         self.fileURL = fileURL
-        // A corrupt or absent file starts empty rather than throwing. Losing a recents
-        // list is not worth refusing to launch over.
+        // A corrupt or absent file starts empty rather than throwing. Losing a recents list
+        // is not worth refusing to launch over. `didSet` does not fire in init, so this
+        // load does not immediately write back.
         let loaded = (try? Data(contentsOf: fileURL))
             .flatMap { try? JSONDecoder.tfnswDecoder.decode(Contents.self, from: $0) }
         self.contents = loaded ?? Contents()
@@ -1565,91 +1329,131 @@ final class LocalStore: ObservableObject {
 }
 ```
 
-- [ ] **Step 5: Push and confirm the tests pass**
-
-```bash
-git add ios/Sources/App/Storage/Feedback.swift ios/Sources/App/Storage/LocalStore.swift ios/Tests/LocalStoreTests.swift
-git commit -m "Persist recents, saved places, and prediction feedback"
-git push
-```
-
-Expected: 34 tests passing. `.iso8601` must be set on both encode and decode or `testEverythingSurvivesAReload` fails on the date.
-
----
-
-### Task 9: The journey map
-
-**Files:**
-- Create: `ios/Sources/App/Map/JourneyMapView.swift`
-- Test: `ios/Tests/MapRegionTests.swift`
-
-**Interfaces:**
-- Consumes: `Journey`, `Leg`, `TransitMode`.
-- Produces:
-  - `struct JourneyMapView: View { init(journey: Journey?, showsUserLocation: Bool = true) }`
-  - `enum MapFraming { static func region(for journey: Journey, padding: Double = 1.4) -> MKCoordinateRegion? }`
-
-- [ ] **Step 1: Write the failing test**
-
-Create `ios/Tests/MapRegionTests.swift`:
+- [ ] **Step 7: Write `ios/Tests/LocalStoreTests.swift`**
 
 ```swift
-import CoreLocation
-import MapKit
 import XCTest
 @testable import NextStop
 
-final class MapRegionTests: XCTestCase {
-    private func journey() throws -> Journey {
-        let dto = try JSONDecoder.tfnswDecoder.decode(TripDTO.self, from: Fixture.data("trip-sample"))
-        return try XCTUnwrap(Journey.list(from: dto).first)
+final class LocalStoreTests: XCTestCase {
+    private var url: URL!
+
+    override func setUpWithError() throws {
+        url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("store-\(UUID().uuidString).json")
     }
 
-    func testRegionContainsEveryPointOnTheRoute() throws {
-        let journey = try journey()
-        let region = try XCTUnwrap(MapFraming.region(for: journey))
-
-        let minLat = region.center.latitude - region.span.latitudeDelta / 2
-        let maxLat = region.center.latitude + region.span.latitudeDelta / 2
-        let minLon = region.center.longitude - region.span.longitudeDelta / 2
-        let maxLon = region.center.longitude + region.span.longitudeDelta / 2
-
-        for leg in journey.legs {
-            for point in leg.path {
-                XCTAssertTrue((minLat...maxLat).contains(point.latitude))
-                XCTAssertTrue((minLon...maxLon).contains(point.longitude))
-            }
-        }
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: url)
     }
 
-    /// A journey between two stops a few hundred metres apart must not produce a span so
-    /// small the map renders at maximum zoom on a blank tile.
-    func testRegionHasAMinimumSpan() {
-        let point = CLLocationCoordinate2D(latitude: -33.7969, longitude: 151.1804)
+    private func suggestion(_ id: String) -> StopSuggestion {
+        StopSuggestion(id: id, name: "Stop \(id)", isBest: false)
+    }
+
+    func testRecentsAreMostRecentFirstAndDeduplicated() {
+        let store = LocalStore(fileURL: url)
+        store.addRecent(suggestion("a"))
+        store.addRecent(suggestion("b"))
+        store.addRecent(suggestion("a"))
+        XCTAssertEqual(store.recents.map(\.id), ["a", "b"])
+    }
+
+    func testRecentsAreCappedAtTen() {
+        let store = LocalStore(fileURL: url)
+        for index in 0..<15 { store.addRecent(suggestion("\(index)")) }
+        XCTAssertEqual(store.recents.count, 10)
+        XCTAssertEqual(store.recents.first?.id, "14")
+    }
+
+    func testSavedTogglesBothWays() {
+        let store = LocalStore(fileURL: url)
+        store.toggleSaved(suggestion("a"))
+        XCTAssertTrue(store.isSaved(suggestion("a")))
+        store.toggleSaved(suggestion("a"))
+        XCTAssertFalse(store.isSaved(suggestion("a")))
+    }
+
+    func testEverythingSurvivesAReload() throws {
+        let store = LocalStore(fileURL: url)
+        store.addRecent(suggestion("a"))
+        store.toggleSaved(suggestion("b"))
+        store.record(PredictionFeedback(
+            id: UUID(), recordedAt: Date(), wasCorrect: false, mode: "Bus", route: "412",
+            originName: "Railway Square", destinationName: "USyd",
+            plannedDeparture: nil, estimatedDeparture: nil, hadRealtime: true, errorSeconds: 120
+        ))
+
+        let reloaded = LocalStore(fileURL: url)
+        XCTAssertEqual(reloaded.recents.map(\.id), ["a"])
+        XCTAssertEqual(reloaded.saved.map(\.id), ["b"])
+        XCTAssertEqual(reloaded.feedback.count, 1)
+        XCTAssertEqual(reloaded.feedback[0].errorSeconds, 120)
+    }
+
+    /// A tap is worth more than a verdict: the gap between the predicted departure and the
+    /// moment the user tapped is the measurable error.
+    func testFeedbackFromALegComputesErrorAgainstTheTapTime() {
+        let planned = Date(timeIntervalSince1970: 1_000_000)
         let leg = Leg(
-            mode: .walk, route: nil, headsign: nil, originName: "A", destinationName: "B",
-            plannedDeparture: nil, estimatedDeparture: nil, plannedArrival: nil, estimatedArrival: nil,
-            hasRealtime: false, path: [point, point], stops: [], durationSeconds: 60
+            id: "test", mode: .bus, route: "412", headsign: "USyd",
+            originName: "Railway Square", destinationName: "USyd",
+            plannedDeparture: planned, estimatedDeparture: planned.addingTimeInterval(60),
+            plannedArrival: nil, estimatedArrival: nil,
+            hasRealtime: true, path: [], stops: [], durationSeconds: 600
         )
-        let region = MapFraming.region(for: Journey(id: 0, legs: [leg]))
-        XCTAssertNotNil(region)
-        XCTAssertGreaterThanOrEqual(region!.span.latitudeDelta, 0.005)
+        let feedback = PredictionFeedback(leg: leg, wasCorrect: true, tappedAt: planned.addingTimeInterval(150))
+        XCTAssertEqual(feedback.errorSeconds, 90)
+        XCTAssertEqual(feedback.mode, "Bus")
+        XCTAssertTrue(feedback.hadRealtime)
     }
 
-    func testJourneyWithNoGeometryHasNoRegion() {
-        let leg = Leg(
-            mode: .walk, route: nil, headsign: nil, originName: "A", destinationName: "B",
-            plannedDeparture: nil, estimatedDeparture: nil, plannedArrival: nil, estimatedArrival: nil,
-            hasRealtime: false, path: [], stops: [], durationSeconds: 60
+    func testExportIsDecodableJSON() throws {
+        let store = LocalStore(fileURL: url)
+        store.record(PredictionFeedback(
+            id: UUID(), recordedAt: Date(), wasCorrect: true, mode: "Metro", route: "M1",
+            originName: "Chatswood", destinationName: "Central",
+            plannedDeparture: nil, estimatedDeparture: nil, hadRealtime: true, errorSeconds: 0
+        ))
+        let decoded = try JSONDecoder.tfnswDecoder.decode(
+            [PredictionFeedback].self, from: try store.exportFeedbackJSON()
         )
-        XCTAssertNil(MapFraming.region(for: Journey(id: 0, legs: [leg])))
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded[0].mode, "Metro")
     }
 }
 ```
 
-- [ ] **Step 2: Push and confirm the tests fail**
+- [ ] **Step 8: Commit and push**
 
-- [ ] **Step 3: Write `Map/JourneyMapView.swift`**
+```bash
+git add ios/Sources/App/Storage ios/Sources/App/TfNSW/TfNSWClient.swift ios/Tests
+git commit -m "Add Keychain storage, the TfNSW client, and the local store"
+git push
+```
+
+Expected: `KeychainStoreTests` (2), `TfNSWClientTests` (6), `LocalStoreTests` (6) pass alongside the earlier suites. `.iso8601` must be set on both encode and decode or `testEverythingSurvivesAReload` fails on the date.
+
+---
+
+### Task 5 — PUSH 4: Map, status, location, and app state
+
+Everything with logic worth testing, before any view bodies.
+
+**Files:**
+- Create: `ios/Sources/App/Map/JourneyMapView.swift`, `ios/Sources/App/UI/DepartureStatus.swift`, `ios/Sources/App/LocationProvider.swift`, `ios/Sources/App/AppModel.swift`
+- Test: `ios/Tests/MapRegionTests.swift`, `ios/Tests/DepartureStatusTests.swift`, `ios/Tests/LocationProviderTests.swift`, `ios/Tests/AppModelTests.swift`
+
+**Interfaces:**
+- Produces:
+  - `enum MapFraming { static func region(for: Journey, padding: Double = 1.4) -> MKCoordinateRegion? }`
+  - `struct JourneyMapView: View { init(journey: Journey?) }`
+  - `enum DepartureStatus: Equatable { case onTime, late(Int), early(Int), scheduledOnly; init(leg:); var label: String; var tint: Color }`
+  - `@MainActor final class LocationProvider: NSObject, ObservableObject` — `coordinate`, `authorisation`, `requestWhenInUse()`, `start()`, `stop()`, `static func tfnswOriginString(for:) -> String`
+  - `@MainActor final class AppModel: ObservableObject` — `store`, `location`, `destination`, `journeys`, `selectedJourneyID: String?`, `searchResults`, `searchError`, `phase: Phase`, `selectedJourney`, `originID`/`originType`, `search(_:)`, `plan(to:)`, `refresh()`, `reset()`
+  - `enum Phase: Equatable { case idle, planning, ready, failed(TfNSWError) }`
+
+- [ ] **Step 1: Write `Map/JourneyMapView.swift`**
 
 ```swift
 import MapKit
@@ -1688,15 +1492,12 @@ enum MapFraming {
 
 struct JourneyMapView: View {
     let journey: Journey?
-    var showsUserLocation: Bool = true
 
     @State private var position: MapCameraPosition = .automatic
 
     var body: some View {
         Map(position: $position) {
-            if showsUserLocation {
-                UserAnnotation()
-            }
+            UserAnnotation()
             if let journey {
                 ForEach(journey.legs) { leg in
                     MapPolyline(coordinates: leg.path)
@@ -1712,15 +1513,11 @@ struct JourneyMapView: View {
                 }
                 ForEach(journey.transitLegs) { leg in
                     if let start = leg.path.first {
-                        Annotation(leg.originName, coordinate: start) {
-                            interchangeDot(leg.mode)
-                        }
+                        Annotation(leg.originName, coordinate: start) { interchangeDot(leg.mode) }
                     }
                 }
-                if let last = journey.legs.last?.path.last {
-                    Annotation(journey.legs.last?.destinationName ?? "", coordinate: last) {
-                        interchangeDot(journey.legs.last?.mode ?? .unknown)
-                    }
+                if let final = journey.legs.last, let end = final.path.last {
+                    Annotation(final.destinationName, coordinate: end) { interchangeDot(final.mode) }
                 }
             }
         }
@@ -1740,335 +1537,12 @@ struct JourneyMapView: View {
 
     private func frame() {
         guard let journey, let region = MapFraming.region(for: journey) else { return }
-        withAnimation(.easeInOut(duration: 0.6)) {
-            position = .region(region)
-        }
+        withAnimation(.easeInOut(duration: 0.6)) { position = .region(region) }
     }
 }
 ```
 
-- [ ] **Step 4: Push and confirm the tests pass**
-
-```bash
-git add ios/Sources/App/Map/JourneyMapView.swift ios/Tests/MapRegionTests.swift
-git commit -m "Draw journey routes on the map with per-mode colours"
-git push
-```
-
-Expected: 37 tests passing.
-
----
-
-### Task 10: App model and navigation state
-
-**Files:**
-- Create: `ios/Sources/App/AppModel.swift`
-- Test: `ios/Tests/AppModelTests.swift`
-
-**Interfaces:**
-- Consumes: `TfNSWClient`, `LocalStore`, `Journey`, `StopSuggestion`.
-- Produces:
-  - `@MainActor final class AppModel: ObservableObject`
-  - `init(client: TfNSWClient = TfNSWClient(), store: LocalStore = .shared)`
-  - `@Published var destination: StopSuggestion?`, `@Published var journeys: [Journey]`, `@Published var selectedJourneyID: Int?`, `@Published var phase: Phase`, `@Published var searchResults: [StopSuggestion]`
-  - `enum Phase: Equatable { case idle, searching, planning, ready, failed(TfNSWError) }`
-  - `var selectedJourney: Journey?`
-  - `func search(_ text: String) async`, `func plan(to: StopSuggestion, from originID: String) async`, `func refresh() async`, `func reset()`
-
-- [ ] **Step 1: Write the failing test**
-
-Create `ios/Tests/AppModelTests.swift`:
-
-```swift
-import XCTest
-@testable import NextStop
-
-private struct StubFetcher: HTTPFetching {
-    var status: Int = 200
-    var payload: Data = Data()
-    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
-        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
-        return (payload, response)
-    }
-}
-
-@MainActor
-final class AppModelTests: XCTestCase {
-    private func store() -> LocalStore {
-        LocalStore(fileURL: FileManager.default.temporaryDirectory
-            .appendingPathComponent("model-\(UUID().uuidString).json"))
-    }
-
-    private func model(status: Int = 200, payload: Data = Data()) -> AppModel {
-        AppModel(
-            client: TfNSWClient(session: StubFetcher(status: status, payload: payload), keyProvider: { "k" }),
-            store: store()
-        )
-    }
-
-    func testPlanningPopulatesJourneysAndSelectsTheFirst() async {
-        let model = model(payload: Fixture.data("trip-sample"))
-        await model.plan(to: StopSuggestion(id: "2", name: "USyd", isBest: true), from: "1")
-        XCTAssertEqual(model.phase, .ready)
-        XCTAssertFalse(model.journeys.isEmpty)
-        XCTAssertEqual(model.selectedJourneyID, model.journeys.first?.id)
-        XCTAssertNotNil(model.selectedJourney)
-    }
-
-    func testPlanningRecordsTheDestinationAsRecent() async {
-        let model = model(payload: Fixture.data("trip-sample"))
-        let destination = StopSuggestion(id: "2", name: "USyd", isBest: true)
-        await model.plan(to: destination, from: "1")
-        XCTAssertEqual(model.store.recents.first?.id, "2")
-    }
-
-    func testAnUnauthorisedPlanSurfacesTheError() async {
-        let model = model(status: 401)
-        await model.plan(to: StopSuggestion(id: "2", name: "USyd", isBest: true), from: "1")
-        XCTAssertEqual(model.phase, .failed(.unauthorised))
-        XCTAssertTrue(model.journeys.isEmpty)
-    }
-
-    func testShortQueriesDoNotSearch() async {
-        let model = model(payload: Fixture.data("stopfinder-sample"))
-        await model.search("Ch")
-        XCTAssertTrue(model.searchResults.isEmpty)
-    }
-
-    func testSearchPopulatesResults() async {
-        let model = model(payload: Fixture.data("stopfinder-sample"))
-        await model.search("Chatswood")
-        XCTAssertFalse(model.searchResults.isEmpty)
-    }
-
-    func testResetClearsEverything() async {
-        let model = model(payload: Fixture.data("trip-sample"))
-        await model.plan(to: StopSuggestion(id: "2", name: "USyd", isBest: true), from: "1")
-        model.reset()
-        XCTAssertTrue(model.journeys.isEmpty)
-        XCTAssertNil(model.destination)
-        XCTAssertEqual(model.phase, .idle)
-    }
-}
-```
-
-- [ ] **Step 2: Push and confirm the tests fail**
-
-- [ ] **Step 3: Write `AppModel.swift`**
-
-```swift
-import Foundation
-
-@MainActor
-final class AppModel: ObservableObject {
-    enum Phase: Equatable {
-        case idle, searching, planning, ready
-        case failed(TfNSWError)
-    }
-
-    /// Below this the Stop Finder returns most of Sydney and the list is useless.
-    private static let minimumQueryLength = 3
-
-    let store: LocalStore
-    private let client: TfNSWClient
-
-    @Published var destination: StopSuggestion?
-    @Published var journeys: [Journey] = []
-    @Published var selectedJourneyID: Int?
-    @Published var searchResults: [StopSuggestion] = []
-    @Published var phase: Phase = .idle
-
-    private var originID: String?
-
-    init(client: TfNSWClient = TfNSWClient(), store: LocalStore = .shared) {
-        self.client = client
-        self.store = store
-    }
-
-    var selectedJourney: Journey? {
-        journeys.first { $0.id == selectedJourneyID }
-    }
-
-    func search(_ text: String) async {
-        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.count >= Self.minimumQueryLength else {
-            searchResults = []
-            return
-        }
-        phase = .searching
-        do {
-            searchResults = try await client.findStops(matching: query)
-            phase = .idle
-        } catch let error as TfNSWError {
-            searchResults = []
-            phase = .failed(error)
-        } catch {
-            searchResults = []
-            phase = .failed(.transport)
-        }
-    }
-
-    func plan(to stop: StopSuggestion, from originID: String) async {
-        destination = stop
-        self.originID = originID
-        phase = .planning
-        do {
-            let found = try await client.journeys(
-                originID: originID, destinationID: stop.id, departing: Date()
-            )
-            journeys = found
-            selectedJourneyID = found.first?.id
-            store.addRecent(stop)
-            phase = .ready
-        } catch let error as TfNSWError {
-            journeys = []
-            selectedJourneyID = nil
-            phase = .failed(error)
-        } catch {
-            journeys = []
-            selectedJourneyID = nil
-            phase = .failed(.transport)
-        }
-    }
-
-    /// Re-plans in place, keeping the user's selected option if it still exists. Called on
-    /// a timer while the journey screen is open.
-    func refresh() async {
-        guard let destination, let originID else { return }
-        let previous = selectedJourneyID
-        await plan(to: destination, from: originID)
-        if let previous, journeys.contains(where: { $0.id == previous }) {
-            selectedJourneyID = previous
-        }
-    }
-
-    func reset() {
-        destination = nil
-        journeys = []
-        selectedJourneyID = nil
-        searchResults = []
-        originID = nil
-        phase = .idle
-    }
-}
-```
-
-- [ ] **Step 4: Push and confirm the tests pass**
-
-```bash
-git add ios/Sources/App/AppModel.swift ios/Tests/AppModelTests.swift
-git commit -m "Add the app model driving search, planning, and refresh"
-git push
-```
-
-Expected: 43 tests passing.
-
----
-
-### Task 11: Glass surfaces and the leg row
-
-The two reusable pieces of UI, built before the screens that compose them.
-
-**Files:**
-- Create: `ios/Sources/App/UI/GlassCard.swift`
-- Create: `ios/Sources/App/UI/LegRow.swift`
-
-**Interfaces:**
-- Produces:
-  - `struct GlassCard<Content: View>: View { init(@ViewBuilder content: () -> Content) }`
-  - `extension View { func glassSurface(cornerRadius: CGFloat) -> some View }`
-  - `struct LegRow: View { init(leg: Leg, isNext: Bool, now: Date, onFeedback: ((Bool) -> Void)?) }`
-  - `enum DepartureStatus { case onTime, late(Int), early(Int), scheduledOnly; init(leg: Leg); var label: String; var tint: Color }`
-
-- [ ] **Step 1: Write the failing test**
-
-Create `ios/Tests/DepartureStatusTests.swift`:
-
-```swift
-import XCTest
-@testable import NextStop
-
-final class DepartureStatusTests: XCTestCase {
-    private func leg(planned: Date?, estimated: Date?, realtime: Bool) -> Leg {
-        Leg(
-            mode: .bus, route: "412", headsign: "USyd",
-            originName: "A", destinationName: "B",
-            plannedDeparture: planned, estimatedDeparture: estimated,
-            plannedArrival: nil, estimatedArrival: nil,
-            hasRealtime: realtime, path: [], stops: [], durationSeconds: 600
-        )
-    }
-
-    /// Untracked is not the same as on time. Claiming a service is punctual when nobody is
-    /// watching it is the exact dishonesty this app exists to avoid.
-    func testNoRealtimeIsScheduledOnlyRatherThanOnTime() {
-        let base = Date(timeIntervalSince1970: 1_000_000)
-        let status = DepartureStatus(leg: leg(planned: base, estimated: nil, realtime: false))
-        XCTAssertEqual(status, .scheduledOnly)
-        XCTAssertEqual(status.tint, Theme.Colors.noRealtime)
-    }
-
-    func testWithinAMinuteCountsAsOnTime() {
-        let base = Date(timeIntervalSince1970: 1_000_000)
-        let status = DepartureStatus(leg: leg(planned: base, estimated: base.addingTimeInterval(30), realtime: true))
-        XCTAssertEqual(status, .onTime)
-    }
-
-    func testLateIsReportedInWholeMinutes() {
-        let base = Date(timeIntervalSince1970: 1_000_000)
-        let status = DepartureStatus(leg: leg(planned: base, estimated: base.addingTimeInterval(185), realtime: true))
-        XCTAssertEqual(status, .late(3))
-        XCTAssertEqual(status.label, "3 min late")
-    }
-
-    func testEarlyIsReportedSeparately() {
-        let base = Date(timeIntervalSince1970: 1_000_000)
-        let status = DepartureStatus(leg: leg(planned: base, estimated: base.addingTimeInterval(-150), realtime: true))
-        XCTAssertEqual(status, .early(2))
-        XCTAssertEqual(status.label, "2 min early")
-    }
-}
-```
-
-- [ ] **Step 2: Push and confirm the tests fail**
-
-- [ ] **Step 3: Write `UI/GlassCard.swift`**
-
-```swift
-import SwiftUI
-
-extension View {
-    /// iOS 26's Liquid Glass where available, with the material fallback kept because the
-    /// simulator screenshots in CI have rendered glass inconsistently.
-    func glassSurface(cornerRadius: CGFloat = Theme.Radius.card) -> some View {
-        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Theme.Colors.stroke, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.35), radius: 24, y: 8)
-    }
-}
-
-struct GlassCard<Content: View>: View {
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(spacing: Theme.Spacing.m) {
-            Capsule()
-                .fill(Theme.Colors.stroke)
-                .frame(width: 36, height: 5)
-            content
-        }
-        .padding(Theme.Spacing.m)
-        .frame(maxWidth: .infinity)
-        .glassSurface()
-        .padding(.horizontal, Theme.Spacing.s)
-    }
-}
-```
-
-- [ ] **Step 4: Write `UI/LegRow.swift`**
+- [ ] **Step 2: Write `UI/DepartureStatus.swift`**
 
 ```swift
 import SwiftUI
@@ -2079,8 +1553,8 @@ enum DepartureStatus: Equatable {
     case early(Int)
     case scheduledOnly
 
-    /// A minute of slack either way. TfNSW estimates jitter by seconds constantly and
-    /// showing "1 min late" that flips back a moment later reads as a broken app.
+    /// A minute of slack either way. TfNSW estimates jitter by seconds constantly, and a
+    /// "1 min late" that flips back a moment later reads as a broken app.
     private static let tolerance: TimeInterval = 60
 
     init(leg: Leg) {
@@ -2116,6 +1590,477 @@ enum DepartureStatus: Equatable {
         }
     }
 }
+```
+
+- [ ] **Step 3: Write `LocationProvider.swift`**
+
+`super.init()` comes first. Reading `manager.authorizationStatus` before it is a phase-1 violation and will not compile.
+
+```swift
+import CoreLocation
+
+@MainActor
+final class LocationProvider: NSObject, ObservableObject {
+    @Published private(set) var coordinate: CLLocationCoordinate2D?
+    @Published private(set) var authorisation: CLAuthorizationStatus = .notDetermined
+
+    private let manager = CLLocationManager()
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        authorisation = manager.authorizationStatus
+    }
+
+    func requestWhenInUse() { manager.requestWhenInUseAuthorization() }
+    func start() { manager.startUpdatingLocation() }
+    func stop() { manager.stopUpdatingLocation() }
+
+    /// EFA wants longitude before latitude here, unlike the `coords` arrays it returns.
+    /// Six decimal places is roughly 0.1 m — more than enough, and shorter than the default
+    /// description, which can render in scientific notation.
+    static func tfnswOriginString(for coordinate: CLLocationCoordinate2D) -> String {
+        String(format: "%.6f:%.6f:EPSG:4326", coordinate.longitude, coordinate.latitude)
+    }
+}
+
+extension LocationProvider: CLLocationManagerDelegate {
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let last = locations.last else { return }
+        Task { @MainActor in self.coordinate = last.coordinate }
+    }
+
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        Task { @MainActor in
+            self.authorisation = status
+            if status == .authorizedWhenInUse || status == .authorizedAlways {
+                self.start()
+            }
+        }
+    }
+}
+```
+
+- [ ] **Step 4: Write `AppModel.swift`**
+
+Two things here are load-bearing and easy to get wrong:
+
+`departAt` is pinned once per destination. If `refresh()` re-planned with `Date()`, then five minutes into a bus ride TfNSW would return a *different set of journeys* — the leg being ridden disappears, the countdown resets, and the feedback buttons vanish before they can be tapped.
+
+`search` never writes `phase`. Sharing one phase between search and planning means every keystroke clears the plan's error banner.
+
+```swift
+import Foundation
+
+@MainActor
+final class AppModel: ObservableObject {
+    enum Phase: Equatable {
+        case idle, planning, ready
+        case failed(TfNSWError)
+    }
+
+    /// Below this the Stop Finder returns most of Sydney and the list is useless.
+    private static let minimumQueryLength = 3
+
+    let store: LocalStore
+    let location = LocationProvider()
+    private let client: TfNSWClient
+
+    @Published var destination: StopSuggestion?
+    @Published var journeys: [Journey] = []
+    @Published var selectedJourneyID: String?
+    @Published var searchResults: [StopSuggestion] = []
+    @Published var searchError: TfNSWError?
+    @Published var phase: Phase = .idle
+
+    private var departAt: Date?
+
+    init(client: TfNSWClient = TfNSWClient(), store: LocalStore = .shared) {
+        self.client = client
+        self.store = store
+    }
+
+    var selectedJourney: Journey? {
+        journeys.first { $0.id == selectedJourneyID }
+    }
+
+    /// Falls back to Chatswood rather than refusing to plan. A journey from the wrong origin
+    /// is visible and correctable; a blank screen tells the user nothing.
+    var originID: String {
+        location.coordinate.map(LocationProvider.tfnswOriginString(for:)) ?? "10101100"
+    }
+
+    var originType: String {
+        location.coordinate == nil ? "stop" : "coord"
+    }
+
+    func search(_ text: String) async {
+        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= Self.minimumQueryLength else {
+            searchResults = []
+            searchError = nil
+            return
+        }
+        do {
+            searchResults = try await client.findStops(matching: query)
+            searchError = nil
+        } catch let error as TfNSWError {
+            searchResults = []
+            searchError = error
+        } catch {
+            searchResults = []
+            searchError = .transport
+        }
+    }
+
+    func plan(to stop: StopSuggestion) async {
+        destination = stop
+        departAt = Date()
+        selectedJourneyID = nil
+        phase = .planning
+        await load(recordRecent: true)
+    }
+
+    /// Re-plans against the pinned departure time, keeping the user's selected option if it
+    /// is still in the result. Called on a timer while the journey screen is open.
+    func refresh() async {
+        guard destination != nil else { return }
+        await load(recordRecent: false)
+    }
+
+    func reset() {
+        destination = nil
+        journeys = []
+        selectedJourneyID = nil
+        searchResults = []
+        searchError = nil
+        departAt = nil
+        phase = .idle
+    }
+
+    private func load(recordRecent: Bool) async {
+        guard let destination, let departAt else { return }
+        do {
+            let found = try await client.journeys(
+                originID: originID,
+                originType: originType,
+                destinationID: destination.id,
+                departing: departAt
+            )
+            journeys = found
+            if selectedJourneyID == nil || !found.contains(where: { $0.id == selectedJourneyID }) {
+                selectedJourneyID = found.first?.id
+            }
+            if recordRecent { store.addRecent(destination) }
+            phase = .ready
+        } catch let error as TfNSWError {
+            journeys = []
+            selectedJourneyID = nil
+            phase = .failed(error)
+        } catch {
+            journeys = []
+            selectedJourneyID = nil
+            phase = .failed(.transport)
+        }
+    }
+}
+```
+
+- [ ] **Step 5: Write the four test files**
+
+`ios/Tests/MapRegionTests.swift`:
+
+```swift
+import CoreLocation
+import MapKit
+import XCTest
+@testable import NextStop
+
+final class MapRegionTests: XCTestCase {
+    private func journey() throws -> Journey {
+        let dto = try JSONDecoder.tfnswDecoder.decode(TripDTO.self, from: Fixture.data("trip-sample"))
+        return try XCTUnwrap(Journey.list(from: dto).first)
+    }
+
+    private func walkLeg(path: [CLLocationCoordinate2D]) -> Leg {
+        Leg(
+            id: "w", mode: .walk, route: nil, headsign: nil,
+            originName: "A", destinationName: "B",
+            plannedDeparture: nil, estimatedDeparture: nil,
+            plannedArrival: nil, estimatedArrival: nil,
+            hasRealtime: false, path: path, stops: [], durationSeconds: 60
+        )
+    }
+
+    func testRegionContainsEveryPointOnTheRoute() throws {
+        let journey = try journey()
+        let region = try XCTUnwrap(MapFraming.region(for: journey))
+        let minLat = region.center.latitude - region.span.latitudeDelta / 2
+        let maxLat = region.center.latitude + region.span.latitudeDelta / 2
+        let minLon = region.center.longitude - region.span.longitudeDelta / 2
+        let maxLon = region.center.longitude + region.span.longitudeDelta / 2
+
+        for leg in journey.legs {
+            for point in leg.path {
+                XCTAssertTrue((minLat...maxLat).contains(point.latitude))
+                XCTAssertTrue((minLon...maxLon).contains(point.longitude))
+            }
+        }
+    }
+
+    /// A journey between two stops a few hundred metres apart must not produce a span so
+    /// small the map renders at maximum zoom on a blank tile.
+    func testRegionHasAMinimumSpan() {
+        let point = CLLocationCoordinate2D(latitude: -33.7969, longitude: 151.1804)
+        let region = MapFraming.region(for: Journey(id: "j", legs: [walkLeg(path: [point, point])]))
+        XCTAssertNotNil(region)
+        XCTAssertGreaterThanOrEqual(region!.span.latitudeDelta, 0.005)
+    }
+
+    func testJourneyWithNoGeometryHasNoRegion() {
+        XCTAssertNil(MapFraming.region(for: Journey(id: "j", legs: [walkLeg(path: [])])))
+    }
+}
+```
+
+`ios/Tests/DepartureStatusTests.swift`:
+
+```swift
+import XCTest
+@testable import NextStop
+
+final class DepartureStatusTests: XCTestCase {
+    private func leg(planned: Date?, estimated: Date?, realtime: Bool) -> Leg {
+        Leg(
+            id: "test", mode: .bus, route: "412", headsign: "USyd",
+            originName: "A", destinationName: "B",
+            plannedDeparture: planned, estimatedDeparture: estimated,
+            plannedArrival: nil, estimatedArrival: nil,
+            hasRealtime: realtime, path: [], stops: [], durationSeconds: 600
+        )
+    }
+
+    /// Untracked is not the same as on time. Claiming a service is punctual when nobody is
+    /// watching it is the exact dishonesty this app exists to avoid.
+    func testNoRealtimeIsScheduledOnlyRatherThanOnTime() {
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let status = DepartureStatus(leg: leg(planned: base, estimated: nil, realtime: false))
+        XCTAssertEqual(status, .scheduledOnly)
+        XCTAssertEqual(status.tint, Theme.Colors.noRealtime)
+    }
+
+    func testRealtimeFlagFalseIsScheduledOnlyEvenWithAnEstimate() {
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let status = DepartureStatus(leg: leg(planned: base, estimated: base.addingTimeInterval(300), realtime: false))
+        XCTAssertEqual(status, .scheduledOnly)
+    }
+
+    func testWithinAMinuteCountsAsOnTime() {
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertEqual(DepartureStatus(leg: leg(planned: base, estimated: base.addingTimeInterval(30), realtime: true)), .onTime)
+    }
+
+    func testLateIsReportedInWholeMinutes() {
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let status = DepartureStatus(leg: leg(planned: base, estimated: base.addingTimeInterval(185), realtime: true))
+        XCTAssertEqual(status, .late(3))
+        XCTAssertEqual(status.label, "3 min late")
+    }
+
+    func testEarlyIsReportedSeparately() {
+        let base = Date(timeIntervalSince1970: 1_000_000)
+        let status = DepartureStatus(leg: leg(planned: base, estimated: base.addingTimeInterval(-150), realtime: true))
+        XCTAssertEqual(status, .early(2))
+        XCTAssertEqual(status.label, "2 min early")
+    }
+}
+```
+
+`ios/Tests/LocationProviderTests.swift`:
+
+```swift
+import CoreLocation
+import XCTest
+@testable import NextStop
+
+final class LocationProviderTests: XCTestCase {
+    /// The Trip Planner takes a coordinate origin as "longitude:latitude:EPSG:4326" —
+    /// longitude first, the opposite order to everything else in this codebase.
+    func testCoordinateOriginIsLongitudeFirst() {
+        let coordinate = CLLocationCoordinate2D(latitude: -33.7969, longitude: 151.1804)
+        XCTAssertEqual(
+            LocationProvider.tfnswOriginString(for: coordinate),
+            "151.180400:-33.796900:EPSG:4326"
+        )
+    }
+}
+```
+
+`ios/Tests/AppModelTests.swift` — note `StubFetcher` is declared once, in `TfNSWClientTests.swift`, and reused here:
+
+```swift
+import XCTest
+@testable import NextStop
+
+@MainActor
+final class AppModelTests: XCTestCase {
+    private func model(status: Int = 200, payload: Data = Data()) -> AppModel {
+        AppModel(
+            client: TfNSWClient(session: StubFetcher(status: status, payload: payload), keyProvider: { "k" }),
+            store: LocalStore(fileURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent("model-\(UUID().uuidString).json"))
+        )
+    }
+
+    private let usyd = StopSuggestion(id: "2", name: "USyd", isBest: true)
+
+    func testPlanningPopulatesJourneysAndSelectsTheFirst() async {
+        let model = model(payload: Fixture.data("trip-sample"))
+        await model.plan(to: usyd)
+        XCTAssertEqual(model.phase, .ready)
+        XCTAssertFalse(model.journeys.isEmpty)
+        XCTAssertEqual(model.selectedJourneyID, model.journeys.first?.id)
+        XCTAssertNotNil(model.selectedJourney)
+    }
+
+    func testPlanningRecordsTheDestinationAsRecent() async {
+        let model = model(payload: Fixture.data("trip-sample"))
+        await model.plan(to: usyd)
+        XCTAssertEqual(model.store.recents.first?.id, "2")
+    }
+
+    /// The user's chosen option must survive a refresh, and a refresh must not append a
+    /// duplicate recent every 30 seconds.
+    func testRefreshKeepsTheSelectionAndDoesNotDuplicateRecents() async {
+        let model = model(payload: Fixture.data("trip-sample"))
+        await model.plan(to: usyd)
+        let chosen = model.journeys.last?.id
+        model.selectedJourneyID = chosen
+        await model.refresh()
+        XCTAssertEqual(model.selectedJourneyID, chosen)
+        XCTAssertEqual(model.store.recents.count, 1)
+    }
+
+    func testAnUnauthorisedPlanSurfacesTheError() async {
+        let model = model(status: 401)
+        await model.plan(to: usyd)
+        XCTAssertEqual(model.phase, .failed(.unauthorised))
+        XCTAssertTrue(model.journeys.isEmpty)
+    }
+
+    func testShortQueriesDoNotSearch() async {
+        let model = model(payload: Fixture.data("stopfinder-sample"))
+        await model.search("Ch")
+        XCTAssertTrue(model.searchResults.isEmpty)
+    }
+
+    func testSearchPopulatesResults() async {
+        let model = model(payload: Fixture.data("stopfinder-sample"))
+        await model.search("Chatswood")
+        XCTAssertFalse(model.searchResults.isEmpty)
+    }
+
+    /// Search and planning must not share error state, or a keystroke wipes the banner
+    /// telling the user their key was rejected.
+    func testSearchDoesNotClearAPlanFailure() async {
+        let model = model(status: 401)
+        await model.plan(to: usyd)
+        await model.search("Ch")
+        XCTAssertEqual(model.phase, .failed(.unauthorised))
+    }
+
+    func testResetClearsEverything() async {
+        let model = model(payload: Fixture.data("trip-sample"))
+        await model.plan(to: usyd)
+        model.reset()
+        XCTAssertTrue(model.journeys.isEmpty)
+        XCTAssertNil(model.destination)
+        XCTAssertEqual(model.phase, .idle)
+    }
+}
+```
+
+- [ ] **Step 6: Commit and push**
+
+```bash
+git add ios/Sources/App/Map ios/Sources/App/UI/DepartureStatus.swift ios/Sources/App/LocationProvider.swift ios/Sources/App/AppModel.swift ios/Tests
+git commit -m "Add map framing, departure status, location, and app state"
+git push
+```
+
+Expected: `MapRegionTests` (3), `DepartureStatusTests` (5), `LocationProviderTests` (1), `AppModelTests` (8) pass alongside the earlier suites.
+
+- [ ] **Step 7: Confirm the fallback origin ID**
+
+`AppModel.originID` falls back to `"10101100"`, which is a guess at Chatswood's Trip Planner ID. Confirm and correct it:
+
+```bash
+cd collector && uv run python -c "
+from nextstop_collector.tfnsw.client import TfnswClient
+from nextstop_collector.tfnsw.stops import find_candidates
+with TfnswClient() as c:
+    print(find_candidates(c, 'Chatswood Station', limit=1))
+"
+```
+
+---
+
+### Task 6 — PUSH 5: Every screen, the root, and CI screenshots
+
+All view bodies land together. `HomeView` links to `LiveJourneyView` and `SettingsView`, so splitting them means a push that can only fail.
+
+No unit tests here: these are view bodies, and a snapshot test of CI-rendered glass costs more to maintain than it catches. The gate is the compile plus the screenshots.
+
+**Files:**
+- Create: `ios/Sources/App/UI/GlassCard.swift`, `UI/LegRow.swift`, `UI/SearchSheet.swift`, `UI/JourneyOptionsView.swift`, `UI/HomeView.swift`, `UI/LiveJourneyView.swift`, `UI/SettingsView.swift`
+- Modify: `ios/Sources/App/NextStopApp.swift:21-40`, `.github/workflows/ios-compile.yml`
+
+**Interfaces:**
+- `LocalStore` is injected as **its own environment object**. It is a separate `ObservableObject` from `AppModel`, so a view observing only `model` is never invalidated when the store changes — the saved star would never toggle and the feedback count would never move.
+
+- [ ] **Step 1: Write `UI/GlassCard.swift`**
+
+```swift
+import SwiftUI
+
+extension View {
+    /// Material rather than iOS 26's `glassEffect`: the CI simulator has rendered glass
+    /// inconsistently, and the screenshots are the only way to see this UI before a device
+    /// build exists. Revisit once there is a phone to compare against.
+    func glassSurface(cornerRadius: CGFloat = Theme.Radius.card) -> some View {
+        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Theme.Colors.stroke, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.35), radius: 24, y: 8)
+    }
+}
+
+struct GlassCard<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(spacing: Theme.Spacing.m) {
+            Capsule()
+                .fill(Theme.Colors.stroke)
+                .frame(width: 36, height: 5)
+            content
+        }
+        .padding(Theme.Spacing.m)
+        .frame(maxWidth: .infinity)
+        .glassSurface()
+        .padding(.horizontal, Theme.Spacing.s)
+    }
+}
+```
+
+- [ ] **Step 2: Write `UI/LegRow.swift`**
+
+```swift
+import SwiftUI
 
 struct LegRow: View {
     let leg: Leg
@@ -2170,11 +2115,14 @@ struct LegRow: View {
                     }
                 }
 
-                Text(leg.mode.isWalking ? "to \(leg.destinationName)" : "from \(leg.originName)")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-
-                if !leg.mode.isWalking {
+                if leg.mode.isWalking {
+                    Text("\(Int((leg.durationSeconds ?? 0) / 60)) min to \(leg.destinationName)")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                } else {
+                    Text("from \(leg.originName)")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                     Text(status.label)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(status.tint)
@@ -2185,12 +2133,8 @@ struct LegRow: View {
                         Text("Was this right?")
                             .font(.caption)
                             .foregroundStyle(Theme.Colors.textSecondary)
-                        Button { onFeedback(true) } label: {
-                            Label("Yes", systemImage: "checkmark")
-                        }
-                        Button { onFeedback(false) } label: {
-                            Label("No", systemImage: "xmark")
-                        }
+                        Button { onFeedback(true) } label: { Label("Yes", systemImage: "checkmark") }
+                        Button { onFeedback(false) } label: { Label("No", systemImage: "xmark") }
                     }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.bordered)
@@ -2206,36 +2150,14 @@ struct LegRow: View {
 }
 ```
 
-- [ ] **Step 5: Push and confirm the tests pass**
-
-```bash
-git add ios/Sources/App/UI/GlassCard.swift ios/Sources/App/UI/LegRow.swift ios/Tests/DepartureStatusTests.swift
-git commit -m "Add glass surfaces and the leg row with an honest realtime badge"
-git push
-```
-
-Expected: 47 tests passing.
-
----
-
-### Task 12: Home, search, and journey options screens
-
-**Files:**
-- Create: `ios/Sources/App/UI/HomeView.swift`
-- Create: `ios/Sources/App/UI/SearchSheet.swift`
-- Create: `ios/Sources/App/UI/JourneyOptionsView.swift`
-
-**Interfaces:**
-- Consumes: `AppModel`, `LocalStore`, `JourneyMapView`, `GlassCard`, `Theme`, `TransitMode`.
-- Produces: `struct HomeView: View`, `struct SearchSheet: View`, `struct JourneyOptionsView: View`. All read `AppModel` from the environment.
-
-- [ ] **Step 1: Write `UI/SearchSheet.swift`**
+- [ ] **Step 3: Write `UI/SearchSheet.swift`**
 
 ```swift
 import SwiftUI
 
 struct SearchSheet: View {
     @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var store: LocalStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var text = ""
@@ -2244,11 +2166,20 @@ struct SearchSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                if !model.store.saved.isEmpty && text.isEmpty {
-                    Section("Saved") { rows(model.store.saved) }
+                if let error = model.searchError {
+                    Section {
+                        Text(error == .missingKey || error == .unauthorised
+                             ? "Add a valid Transport NSW API key in Settings."
+                             : "Could not reach Transport NSW.")
+                            .font(.footnote)
+                            .foregroundStyle(Theme.Colors.late)
+                    }
                 }
-                if !model.store.recents.isEmpty && text.isEmpty {
-                    Section("Recent") { rows(model.store.recents) }
+                if !store.saved.isEmpty && text.isEmpty {
+                    Section("Saved") { rows(store.saved) }
+                }
+                if !store.recents.isEmpty && text.isEmpty {
+                    Section("Recent") { rows(store.recents) }
                 }
                 if !model.searchResults.isEmpty {
                     Section("Results") { rows(model.searchResults) }
@@ -2262,9 +2193,7 @@ struct SearchSheet: View {
             .searchable(text: $text, prompt: "Station, stop, or address")
             .onChange(of: text) { _, new in schedule(new) }
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             }
         }
         .preferredColorScheme(.dark)
@@ -2273,24 +2202,21 @@ struct SearchSheet: View {
     private func rows(_ stops: [StopSuggestion]) -> some View {
         ForEach(stops) { stop in
             Button {
-                select(stop)
+                dismiss()
+                Task { await model.plan(to: stop) }
             } label: {
                 HStack {
-                    Image(systemName: "mappin.circle.fill")
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                    Text(stop.name)
-                        .foregroundStyle(Theme.Colors.textPrimary)
+                    Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.Colors.textSecondary)
+                    Text(stop.name).foregroundStyle(Theme.Colors.textPrimary)
                     Spacer()
-                    if model.store.isSaved(stop) {
+                    if store.isSaved(stop) {
                         Image(systemName: "star.fill").foregroundStyle(.yellow)
                     }
                 }
             }
             .swipeActions(edge: .leading) {
-                Button(model.store.isSaved(stop) ? "Unsave" : "Save") {
-                    model.store.toggleSaved(stop)
-                }
-                .tint(.yellow)
+                Button(store.isSaved(stop) ? "Unsave" : "Save") { store.toggleSaved(stop) }
+                    .tint(.yellow)
             }
         }
     }
@@ -2305,15 +2231,10 @@ struct SearchSheet: View {
             await model.search(query)
         }
     }
-
-    private func select(_ stop: StopSuggestion) {
-        dismiss()
-        Task { await model.plan(to: stop, from: "current-location-placeholder") }
-    }
 }
 ```
 
-- [ ] **Step 2: Write `UI/JourneyOptionsView.swift`**
+- [ ] **Step 4: Write `UI/JourneyOptionsView.swift`**
 
 ```swift
 import SwiftUI
@@ -2381,15 +2302,15 @@ struct JourneyOptionsView: View {
 }
 ```
 
-- [ ] **Step 3: Write `UI/HomeView.swift`**
+- [ ] **Step 5: Write `UI/HomeView.swift`**
 
 ```swift
 import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
+    @Binding var showingSettings: Bool
     @State private var showingSearch = false
-    @State private var showingSettings = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -2415,8 +2336,7 @@ struct HomeView: View {
                                         .foregroundStyle(Theme.Colors.textSecondary)
                                 }
                                 Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundStyle(Theme.Colors.textSecondary)
+                                Image(systemName: "chevron.right").foregroundStyle(Theme.Colors.textSecondary)
                             }
                         }
                     } else {
@@ -2442,6 +2362,11 @@ struct HomeView: View {
             }
             .padding(.bottom, Theme.Spacing.s)
         }
+        // Without an inline title the map sits under an empty large-title bar, which reads
+        // as an unfinished screen in the CI screenshot.
+        .navigationTitle("NextStop")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showingSettings = true } label: { Image(systemName: "gearshape") }
@@ -2452,14 +2377,22 @@ struct HomeView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingSearch) { SearchSheet().environmentObject(model) }
-        .sheet(isPresented: $showingSettings) { SettingsView().environmentObject(model) }
+        .sheet(isPresented: $showingSearch) {
+            SearchSheet()
+                .environmentObject(model)
+                .environmentObject(model.store)
+        }
+        .onAppear {
+            model.location.requestWhenInUse()
+            model.location.start()
+        }
+        .onDisappear { model.location.stop() }
     }
 
     @ViewBuilder
     private func errorRow(_ error: TfNSWError) -> some View {
         let message: String = switch error {
-        case .missingKey: "Add your TfNSW API key in Settings"
+        case .missingKey: "Add your Transport NSW API key in Settings"
         case .unauthorised: "That API key was rejected. Check it in Settings."
         case .http(let code): "Transport NSW returned an error (\(code))"
         case .transport: "Could not reach Transport NSW"
@@ -2477,46 +2410,23 @@ struct HomeView: View {
 }
 ```
 
-- [ ] **Step 4: Commit, but do not push**
-
-**Tasks 12, 13, and 14 are one compile unit.** `HomeView` navigates to `LiveJourneyView` and `SettingsView`, which do not exist until Tasks 13 and 14. Pushing now would spend a five-minute CI round trip to be told exactly that.
-
-These three tasks add no tests. They are view bodies, and a snapshot test of CI-rendered glass costs more to maintain than it catches. The gate for all three is the compile and the screenshots at the end of Task 14.
-
-```bash
-git add ios/Sources/App/UI/HomeView.swift ios/Sources/App/UI/SearchSheet.swift ios/Sources/App/UI/JourneyOptionsView.swift
-git commit -m "Add the home, search, and journey option screens"
-```
-
-Expected: a local commit. Nothing runs.
-
----
-
-### Task 13: The live journey screen
-
-**Files:**
-- Create: `ios/Sources/App/UI/LiveJourneyView.swift`
-
-**Interfaces:**
-- Consumes: `AppModel`, `LegRow`, `JourneyMapView`, `PredictionFeedback`, `LocalStore`.
-- Produces: `struct LiveJourneyView: View`.
-
-- [ ] **Step 1: Write `UI/LiveJourneyView.swift`**
+- [ ] **Step 6: Write `UI/LiveJourneyView.swift`**
 
 ```swift
 import SwiftUI
 
 struct LiveJourneyView: View {
     @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var store: LocalStore
 
     @State private var now = Date()
-    @State private var recorded: Set<UUID> = []
+    @State private var recorded: Set<String> = []
+    @State private var lastRefresh = Date()
 
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-    /// The realtime feed itself only moves every 10–15 seconds, so anything faster than
-    /// this spends quota to redraw the same numbers.
+    /// The realtime feed itself only moves every 10–15 seconds, so anything faster than this
+    /// spends quota to redraw the same numbers.
     private let refreshEvery: TimeInterval = 30
-    @State private var lastRefresh = Date()
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -2534,7 +2444,6 @@ struct LiveJourneyView: View {
                                 now: now,
                                 onFeedback: recorded.contains(leg.id) ? nil : { record(leg, $0) }
                             )
-                            .transition(.opacity.combined(with: .move(edge: .trailing)))
                         }
                     }
                     .padding(Theme.Spacing.m)
@@ -2564,7 +2473,8 @@ struct LiveJourneyView: View {
                     .foregroundStyle(Theme.Colors.textPrimary)
             }
             if let duration = journey.duration {
-                Text("\(Int(duration / 60)) min · \(journey.transitLegs.count) service\(journey.transitLegs.count == 1 ? "" : "s")")
+                let count = journey.transitLegs.count
+                Text("\(Int(duration / 60)) min · \(count) service\(count == 1 ? "" : "s")")
                     .font(.footnote)
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
@@ -2577,47 +2487,23 @@ struct LiveJourneyView: View {
     }
 
     private func record(_ leg: Leg, _ wasCorrect: Bool) {
-        model.store.record(PredictionFeedback(leg: leg, wasCorrect: wasCorrect, tappedAt: Date()))
+        store.record(PredictionFeedback(leg: leg, wasCorrect: wasCorrect, tappedAt: Date()))
         withAnimation(.snappy) { _ = recorded.insert(leg.id) }
     }
 }
 ```
 
-- [ ] **Step 2: Commit**
-
-```bash
-git add ios/Sources/App/UI/LiveJourneyView.swift
-git commit -m "Add the live journey screen with per-leg feedback"
-```
-
-Do not push yet — the build still lacks `SettingsView`. Task 14 completes the set.
-
----
-
-### Task 14: Settings, root wiring, and CI screenshots
-
-The task that makes the app launchable and visible.
-
-**Files:**
-- Create: `ios/Sources/App/UI/SettingsView.swift`
-- Modify: `ios/Sources/App/NextStopApp.swift:21-40`
-- Modify: `.github/workflows/ios-compile.yml:73-88`
-
-**Interfaces:**
-- Consumes: everything above.
-- Produces: `struct SettingsView: View`, a rewritten `RootView`.
-
-- [ ] **Step 1: Write `UI/SettingsView.swift`**
+- [ ] **Step 7: Write `UI/SettingsView.swift`**
 
 ```swift
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var store: LocalStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var key = ""
-    @State private var saved = false
+    @State private var hasKey = KeychainStore.read() != nil
     @State private var exported: URL?
 
     var body: some View {
@@ -2629,11 +2515,11 @@ struct SettingsView: View {
                         .autocorrectionDisabled()
                     Button("Save key") {
                         try? KeychainStore.save(key.trimmingCharacters(in: .whitespacesAndNewlines))
-                        saved = true
+                        hasKey = KeychainStore.read() != nil
                         key = ""
                     }
                     .disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    if saved || KeychainStore.read() != nil {
+                    if hasKey {
                         Label("A key is stored on this device", systemImage: "checkmark.seal.fill")
                             .foregroundStyle(Theme.Colors.onTime)
                     }
@@ -2644,12 +2530,11 @@ struct SettingsView: View {
                 }
 
                 Section("Feedback") {
-                    LabeledContent("Recorded", value: "\(model.store.feedback.count)")
+                    LabeledContent("Recorded", value: "\(store.feedback.count)")
                     if let exported {
                         ShareLink("Export as JSON", item: exported)
                     }
                 }
-                .onAppear(perform: writeExport)
 
                 Section("Developer") {
                     NavigationLink("Live Activity spike") { SpikeControlView() }
@@ -2663,56 +2548,65 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
+            .onAppear(perform: writeExport)
         }
         .preferredColorScheme(.dark)
     }
 
-    /// ShareLink needs a file that already exists, so the export is written when the
-    /// screen appears rather than when the user taps.
+    /// ShareLink needs a file that already exists, so the export is written when the screen
+    /// appears rather than when the user taps.
     private func writeExport() {
-        guard !model.store.feedback.isEmpty,
-              let data = try? model.store.exportFeedbackJSON() else { return }
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("nextstop-feedback.json")
+        guard !store.feedback.isEmpty, let data = try? store.exportFeedbackJSON() else { return }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("nextstop-feedback.json")
         try? data.write(to: url, options: .atomic)
         exported = url
     }
 }
 ```
 
-- [ ] **Step 2: Rewrite `RootView` in `ios/Sources/App/NextStopApp.swift`**
+- [ ] **Step 8: Rewrite `RootView` in `ios/Sources/App/NextStopApp.swift`**
 
-Replace lines 21–40 with:
+Replace lines 21–40. Leave `@main struct NextStopApp` above it untouched.
+
+The settings sheet is a real `@State` binding, not `.constant(...)` — with a constant binding the Done button dismisses and the sheet immediately re-presents. It opens automatically when no key is stored, which is otherwise a dead end: the user taps "Where to?", types, gets `.missingKey`, and sees an empty list with the error banner hidden behind the sheet.
+
+`SpikeSession` is re-injected explicitly. `SpikeControlView.swift:5` uses `@Environment(SpikeSession.self)`, which traps when absent, and the developer menu lives inside this sheet.
 
 ```swift
 struct RootView: View {
+    @Environment(SpikeSession.self) private var session
     @StateObject private var model = AppModel()
+    @State private var showingSettings: Bool
 
-    // CI launches the simulator with `-initialScreen settings` to screenshot a screen it
-    // cannot otherwise reach. Without a provisioned device this is the only way to look at
-    // these layouts at all. UserDefaults picks launch arguments up via NSArgumentDomain.
-    @State private var initialScreen = UserDefaults.standard.string(forKey: "initialScreen")
+    init() {
+        // CI launches with `-initialScreen settings` to screenshot a screen it cannot
+        // otherwise reach. UserDefaults picks launch arguments up via NSArgumentDomain.
+        let requested = UserDefaults.standard.string(forKey: "initialScreen") == "settings"
+        _showingSettings = State(initialValue: requested || KeychainStore.read() == nil)
+    }
 
     var body: some View {
         NavigationStack {
-            HomeView()
+            HomeView(showingSettings: $showingSettings)
                 .background(Theme.Colors.background)
         }
         .environmentObject(model)
+        .environmentObject(model.store)
         .preferredColorScheme(.dark)
         .tint(Theme.Colors.textPrimary)
-        .sheet(isPresented: .constant(initialScreen == "settings")) {
-            SettingsView().environmentObject(model)
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+                .environmentObject(model)
+                .environmentObject(model.store)
+                .environment(session)
         }
     }
 }
 ```
 
-Leave the `@main struct NextStopApp` above it untouched — `SpikeSession` is still injected for the developer screens.
+- [ ] **Step 9: Update the CI screenshot step**
 
-- [ ] **Step 3: Update the CI screenshot step**
-
-In `.github/workflows/ios-compile.yml`, replace the `for tab in spike layouts log` loop with:
+In `.github/workflows/ios-compile.yml`, replace the `for tab in spike layouts log` loop body with:
 
 ```bash
           UDID="${{ steps.sim.outputs.udid }}"
@@ -2731,171 +2625,49 @@ In `.github/workflows/ios-compile.yml`, replace the `for tab in spike layouts lo
           ls -la shots
 ```
 
-- [ ] **Step 4: Push and confirm the whole thing builds, tests, and screenshots**
+The spike screens leave CI screenshot coverage with this change. That is accepted — they are verified on a real phone — but a regression in them will no longer be caught automatically.
+
+- [ ] **Step 10: Commit and push**
 
 ```bash
-git add ios/Sources/App/UI/SettingsView.swift ios/Sources/App/NextStopApp.swift .github/workflows/ios-compile.yml
+git add ios/Sources/App/UI ios/Sources/App/NextStopApp.swift .github/workflows/ios-compile.yml
 git commit -m "Wire the journey app as the root screen"
 git push
 ```
 
-Expected: build succeeds, 47 tests pass, and the `simulator-screenshots` artifact contains `home.png` showing a dark map with a glass "Where to?" card, and `settings.png` showing the key field.
+Expected: build succeeds, every test passes, and `simulator-screenshots` contains `home.png` and `settings.png`.
 
-- [ ] **Step 5: Download the artifact and look at both screenshots**
+- [ ] **Step 11: Download the artifact and look at both screenshots**
 
-This is the only visual check that exists. A screenshot showing a white background means `preferredColorScheme` is not reaching the sheet; a screenshot showing a blank grey rectangle where the map should be is expected in the simulator without a location fix and is not a failure.
+This is the only visual check that exists before a device build. A white background means `preferredColorScheme` is not reaching a sheet. A blank grey rectangle where the map should be is expected in a simulator with no location fix and is not a failure. An empty bar above the map means Step 5's title modifiers did not take.
 
 ---
 
-### Task 15: Origin from current location
+### Task 7: Use it
 
-Every earlier task passes the literal string `"current-location-placeholder"` as the origin. This task makes it real, and is deliberately last so that nothing before it is blocked on location permission behaviour.
+- [ ] **Step 1: Build and install**
 
-**Files:**
-- Create: `ios/Sources/App/LocationProvider.swift`
-- Modify: `ios/Sources/App/UI/SearchSheet.swift` (the `select(_:)` method)
-- Modify: `ios/Sources/App/AppModel.swift` (add `originDescription`)
-- Test: `ios/Tests/LocationProviderTests.swift`
+Push to `main`, let Codemagic build, install from TestFlight. Open Settings, paste the TfNSW key.
 
-**Interfaces:**
-- Produces:
-  - `@MainActor final class LocationProvider: NSObject, ObservableObject` with `@Published private(set) var coordinate: CLLocationCoordinate2D?`, `func requestWhenInUse()`, `func start()`, `func stop()`
-  - `static func tfnswOriginString(for coordinate: CLLocationCoordinate2D) -> String`
+- [ ] **Step 2: The real gate**
 
-- [ ] **Step 1: Write the failing test**
+Plan a journey to somewhere you have not been. Follow it. Tap ✓ or ✗ on each leg as it departs. Export the feedback from Settings afterwards.
 
-Create `ios/Tests/LocationProviderTests.swift`:
-
-```swift
-import CoreLocation
-import XCTest
-@testable import NextStop
-
-final class LocationProviderTests: XCTestCase {
-    /// The Trip Planner takes a coordinate origin as "longitude:latitude:EPSG:4326" —
-    /// longitude first, the opposite order to everything else in this codebase.
-    func testCoordinateOriginIsLongitudeFirst() {
-        let coordinate = CLLocationCoordinate2D(latitude: -33.7969, longitude: 151.1804)
-        XCTAssertEqual(
-            LocationProvider.tfnswOriginString(for: coordinate),
-            "151.180400:-33.796900:EPSG:4326"
-        )
-    }
-}
-```
-
-- [ ] **Step 2: Push and confirm the test fails**
-
-- [ ] **Step 3: Write `LocationProvider.swift`**
-
-```swift
-import CoreLocation
-
-@MainActor
-final class LocationProvider: NSObject, ObservableObject {
-    @Published private(set) var coordinate: CLLocationCoordinate2D?
-    @Published private(set) var authorisation: CLAuthorizationStatus
-
-    private let manager = CLLocationManager()
-
-    override init() {
-        authorisation = manager.authorizationStatus
-        super.init()
-        manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-    }
-
-    func requestWhenInUse() { manager.requestWhenInUseAuthorization() }
-    func start() { manager.startUpdatingLocation() }
-    func stop() { manager.stopUpdatingLocation() }
-
-    /// EFA wants longitude before latitude here, unlike the `coords` arrays it returns.
-    /// Six decimal places is roughly 0.1 m — more than enough and shorter than the default
-    /// description, which can render in scientific notation.
-    static func tfnswOriginString(for coordinate: CLLocationCoordinate2D) -> String {
-        String(format: "%.6f:%.6f:EPSG:4326", coordinate.longitude, coordinate.latitude)
-    }
-}
-
-extension LocationProvider: CLLocationManagerDelegate {
-    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let last = locations.last else { return }
-        Task { @MainActor in self.coordinate = last.coordinate }
-    }
-
-    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        let status = manager.authorizationStatus
-        Task { @MainActor in
-            self.authorisation = status
-            if status == .authorizedWhenInUse || status == .authorizedAlways {
-                manager.startUpdatingLocation()
-            }
-        }
-    }
-}
-```
-
-- [ ] **Step 4: Use it as the origin**
-
-In `AppModel.swift`, add a stored property and an accessor:
-
-```swift
-    let location = LocationProvider()
-
-    /// Falls back to Chatswood rather than refusing to plan. A journey from the wrong
-    /// origin is still visible and correctable; a blank screen tells the user nothing.
-    var originString: String {
-        if let coordinate = location.coordinate {
-            return LocationProvider.tfnswOriginString(for: coordinate)
-        }
-        return "10101100"
-    }
-```
-
-In `SearchSheet.swift`, change `select(_:)` to:
-
-```swift
-    private func select(_ stop: StopSuggestion) {
-        dismiss()
-        Task { await model.plan(to: stop, from: model.originString) }
-    }
-```
-
-In `HomeView.swift`, request permission when the map first appears — add to the `ZStack`:
-
-```swift
-        .onAppear {
-            model.location.requestWhenInUse()
-            model.location.start()
-        }
-        .onDisappear { model.location.stop() }
-```
-
-- [ ] **Step 5: Push and confirm everything passes**
-
-```bash
-git add ios/Sources/App/LocationProvider.swift ios/Sources/App/AppModel.swift ios/Sources/App/UI/SearchSheet.swift ios/Sources/App/UI/HomeView.swift ios/Tests/LocationProviderTests.swift
-git commit -m "Plan journeys from the current location"
-git push
-```
-
-Expected: 48 tests passing.
-
-- [ ] **Step 6: Install on the phone and use it**
-
-Push to `main`, let Codemagic build, install from TestFlight. Then the real gate: **plan a journey to somewhere you have not been, follow it, and tap ✓ or ✗ on each leg.** Export the feedback from Settings afterwards.
-
-The fallback origin ID `10101100` in Step 4 is Chatswood's Trip Planner ID and is a guess — confirm it with `uv run python -c "from nextstop_collector.tfnsw.client import TfnswClient; from nextstop_collector.tfnsw.stops import find_candidates; c=TfnswClient(); print(find_candidates(c,'Chatswood Station',limit=1))"` and correct it if it differs.
+What to watch for, in order of likelihood:
+1. Does the leg list stay still, or does it flicker every 30 seconds? (Stable ids — Task 3 Step 7.)
+2. Does the journey you selected stay selected across refreshes? (Pinned `departAt` — Task 5 Step 4.)
+3. Do the "Was this right?" buttons stay tapped once tapped?
+4. Does the map draw the route, or straight lines between stops?
+5. Are the mode colours right for bus? (Task 3 Step 10.)
 
 ---
 
 ## Deliberately Not In This Plan
 
-Recorded so they are visible decisions rather than omissions:
-
 - **Live Activity for real journeys.** The spike works on device; wiring it to `Journey` is a follow-up once there is a fortnight of using the app to say what belongs on a Lock Screen.
 - **The VPS proxy.** Needed the day a second person installs this, because nobody else will type in an API key. `deploy/nextstop-api.service` already exists for it.
 - **Porting the collector's quirk filters to Swift.** They operate on raw GTFS-Realtime feeds; the Trip Planner endpoint this app uses returns estimated times directly.
-- **Trip Planner rate limiting in the app.** The collector needs a token bucket because it runs unattended. One person tapping a phone cannot approach 60,000 calls a day.
+- **Rate limiting in the app.** The collector needs a token bucket because it runs unattended. One person tapping a phone cannot approach 60,000 calls a day.
 - **Offline caching.** Every screen needs live data to be worth anything.
 - **Snapshot tests of the UI.** The CI screenshots are the check.
+- **An App Transport Security exception.** `api.transport.nsw.gov.au` is HTTPS with TLS 1.2+; adding an exception dictionary would only weaken the default.
