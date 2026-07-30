@@ -64,7 +64,12 @@ workflows:
           keychain add-certificates
 
       - name: Apply signing settings
-        script: xcode-project use-profiles --project ios/NextStop.xcodeproj
+        script: |
+          # "Failed to set code signing settings" names no cause, so show what the command
+          # actually has to work with. Two profiles must be present, one per target.
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" || true
+          security find-identity -v -p codesigning || true
+          xcode-project -v use-profiles --project ios/NextStop.xcodeproj
       - name: Build IPA
         script: |
           xcode-project build-ipa \
