@@ -15,13 +15,10 @@ workflows:
       app_store_connect: NextStop ASC key
     environment:
       xcode: latest
-      # Declaring ios_signing is enough on its own: Codemagic creates the distribution
-      # certificate and the profiles through the App Store Connect API during the build.
-      # Naming only the app's bundle ID also covers extensions sharing its prefix, so
-      # com.kaichuan.nextstop.widget comes along with it.
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.kaichuan.nextstop
+      # No `ios_signing:` block on purpose. It only ever *fetches* existing signing files,
+      # so on an account that has never produced a provisioning profile it fails before a
+      # single script runs, with "No matching profiles found". The signing files are
+      # created explicitly below instead.
       vars:
         # Not a credential — the team ID is embedded in every distributed build and is
         # readable from any IPA. Kept here so the build has no untracked inputs.
@@ -39,6 +36,17 @@ workflows:
             "$DEVELOPMENT_TEAM" "$BUILD_NUMBER" > Signing.xcconfig
           cat Signing.xcconfig
           xcodegen generate
+      - name: Create signing files
+        script: |
+          keychain initialize
+          # The widget extension needs a profile of its own. Omitting it is the classic
+          # cause of a build that signs the app fine and then fails on embedding.
+          app-store-connect fetch-signing-files com.kaichuan.nextstop \
+            --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files com.kaichuan.nextstop.widget \
+            --type IOS_APP_STORE --create
+          keychain add-certificates
+
       - name: Apply signing settings
         script: xcode-project use-profiles --project ios/NextStop.xcodeproj
       - name: Build IPA
