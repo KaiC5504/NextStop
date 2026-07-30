@@ -20,10 +20,10 @@ workflows:
       # single script runs, with "No matching profiles found". The signing files are
       # created explicitly below instead.
       #
-      # Supplies CERTIFICATE_PRIVATE_KEY. A certificate is useless without its private
-      # key, and the key belonging to one generated in the Codemagic UI is not readable
-      # by the CLI — hence "Cannot save Signing Certificates without certificate private
-      # key". Bringing our own key means the certificate is ours to reuse indefinitely.
+      # Supplies CERT_KEY_B64. A certificate is useless without its private key, and the
+      # key belonging to one generated in the Codemagic UI is not readable by the CLI —
+      # hence "Cannot save Signing Certificates without certificate private key".
+      # Bringing our own key means the certificate is ours to reuse indefinitely.
       groups:
         - code_signing
       vars:
@@ -45,13 +45,22 @@ workflows:
           xcodegen generate
       - name: Create signing files
         script: |
+          set -e
           keychain initialize
+
+          # Carried base64 because a PEM key pasted into a web form loses its line breaks,
+          # and the CLI rejects the flattened result outright. Decoding to a file and
+          # passing it by path puts the newlines back and keeps the key out of argv.
+          printf '%s' "$CERT_KEY_B64" | openssl base64 -d -A > "$HOME/cert_key.pem"
+
           # The widget extension needs a profile of its own. Omitting it is the classic
           # cause of a build that signs the app fine and then fails on embedding.
-          app-store-connect fetch-signing-files com.kaichuan.nextstop \
-            --type IOS_APP_STORE --create
-          app-store-connect fetch-signing-files com.kaichuan.nextstop.widget \
-            --type IOS_APP_STORE --create
+          for identifier in com.kaichuan.nextstop com.kaichuan.nextstop.widget; do
+            app-store-connect fetch-signing-files "$identifier" \
+              --type IOS_APP_STORE --create \
+              --certificate-key "@file:$HOME/cert_key.pem"
+          done
+
           keychain add-certificates
 
       - name: Apply signing settings
