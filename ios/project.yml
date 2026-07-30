@@ -42,10 +42,17 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kaichuan.nextstop
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: Generated/NextStop-Info.plist
       properties:
         CFBundleDisplayName: NextStop
+        # XcodeGen's defaults for these two are the literals "1.0" and "1", so without
+        # them the build number never changes and the second upload is rejected as a
+        # duplicate. Referencing the build settings is what lets CI vary it.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleIconName: AppIcon
         # Without this every upload sits in TestFlight as "Missing Compliance" until the
         # export-encryption question is answered by hand, which blocks install. The spike
         # makes no network calls at all, so the answer is always the same one.
@@ -56,6 +63,13 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        # Upload validation demands all four for iPad regardless of TARGETED_DEVICE_FAMILY.
+        # The iPhone key above is the one that governs how the app actually behaves.
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         # Without this the Live Activity request fails at runtime with an error that
         # reads like a code bug rather than a missing key.
         NSSupportsLiveActivities: true
@@ -88,6 +102,10 @@ targets:
       path: Generated/NextStopWidget-Info.plist
       properties:
         CFBundleDisplayName: NextStop
+        # An embedded extension whose version differs from its host app is rejected on
+        # upload, so both must resolve from the same build settings.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
