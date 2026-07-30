@@ -47,4 +47,11 @@ final class MapRegionTests: XCTestCase {
     func testJourneyWithNoGeometryHasNoRegion() {
         XCTAssertNil(MapFraming.region(for: Journey(id: "j", legs: [walkLeg(path: [])])))
     }
+
+    /// Transposing these two puts the launch screen off the coast of Morocco, and nothing
+    /// else in the app would fail.
+    func testTheDefaultRegionIsOverSydney() {
+        XCTAssertEqual(MapFraming.sydney.center.latitude, -33.87, accuracy: 0.05)
+        XCTAssertEqual(MapFraming.sydney.center.longitude, 151.21, accuracy: 0.05)
+    }
 }

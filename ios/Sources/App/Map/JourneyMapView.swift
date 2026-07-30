@@ -6,6 +6,13 @@ enum MapFraming {
     /// broken map rather than a short walk.
     private static let minimumSpan: CLLocationDegrees = 0.005
 
+    /// Where the map sits before there is a journey or a location fix. `.automatic` frames
+    /// the whole globe in that state, and that state is the first thing the app ever shows.
+    static let sydney = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: -33.8688, longitude: 151.2093),
+        span: MKCoordinateSpan(latitudeDelta: 0.4, longitudeDelta: 0.4)
+    )
+
     static func region(for journey: Journey, padding: Double = 1.4) -> MKCoordinateRegion? {
         let points = journey.legs.flatMap(\.path)
         guard let first = points.first else { return nil }
@@ -35,7 +42,7 @@ enum MapFraming {
 struct JourneyMapView: View {
     let journey: Journey?
 
-    @State private var position: MapCameraPosition = .automatic
+    @State private var position: MapCameraPosition = .userLocation(fallback: .region(MapFraming.sydney))
 
     var body: some View {
         Map(position: $position) {
