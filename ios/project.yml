@@ -7,9 +7,13 @@ options:
   createIntermediateGroups: true
   groupSortPosition: top
 
-configFiles:
-  Debug: Signing.xcconfig
-  Release: Signing.xcconfig
+# No `configFiles:` here. A project-level xcconfig is emitted by XcodeGen as a file
+# reference belonging to no group, and anything reading the project with the xcodeproj
+# gem — Codemagic's signing setup among them — dies on it with "Consistency issue: no
+# parent for object `Signing.xcconfig`". Xcode repairs the project silently when it opens
+# one, which is why the defect survives; there is no Xcode here to do that.
+# The team is written into the project by `xcode-project use-profiles`, and the build
+# number is passed on the xcodebuild command line, so nothing needs an xcconfig.
 
 settings:
   base:
@@ -18,9 +22,9 @@ settings:
     # about iOS, not to litigate sendability. Revisit for Phase 2.
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "0.1.0"
-    # CURRENT_PROJECT_VERSION deliberately absent: set here it would land in the project's
-    # build settings, which shadow the xcconfig, and CI could no longer vary it. App Store
-    # Connect rejects a build number it has already seen, so every upload needs a new one.
+    # Only a default. App Store Connect rejects a build number it has already accepted, so
+    # CI overrides this per build from the command line, which outranks project settings.
+    CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     CODE_SIGN_STYLE: Automatic

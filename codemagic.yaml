@@ -26,22 +26,12 @@ workflows:
       # Bringing our own key means the certificate is ours to reuse indefinitely.
       groups:
         - code_signing
-      vars:
-        # Not a credential — the team ID is embedded in every distributed build and is
-        # readable from any IPA. Kept here so the build has no untracked inputs.
-        DEVELOPMENT_TEAM: "LDHQJK9Y3D"
     scripts:
       - name: Install XcodeGen
         script: brew install xcodegen
       - name: Generate the Xcode project
         script: |
           cd ios
-          # Written rather than copied from the example: that one leaves the team empty,
-          # which is right for simulator builds and wrong here. Nothing else is set, so
-          # there is nothing for `use-profiles` to have to override.
-          printf 'DEVELOPMENT_TEAM = %s\nCURRENT_PROJECT_VERSION = %s\n' \
-            "$DEVELOPMENT_TEAM" "$BUILD_NUMBER" > Signing.xcconfig
-          cat Signing.xcconfig
           xcodegen generate
       - name: Create signing files
         script: |
@@ -80,9 +70,13 @@ workflows:
             --code-signing-setup-verbose-logging
       - name: Build IPA
         script: |
+          # A command-line build setting outranks everything in the project, which is how
+          # the build number gets in now that there is no xcconfig. The index-store flag
+          # is this option's default and would be lost by overriding it.
           xcode-project build-ipa \
             --project ios/NextStop.xcodeproj \
-            --scheme NextStop
+            --scheme NextStop \
+            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log

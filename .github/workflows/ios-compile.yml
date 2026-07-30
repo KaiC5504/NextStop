@@ -30,7 +30,6 @@ jobs:
       - name: Generate project
         run: |
           cd ios
-          cp Signing.example.xcconfig Signing.xcconfig
           xcodegen generate
 
       - name: Boot a simulator

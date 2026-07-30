@@ -52,14 +52,14 @@ The project file is generated, never committed. XcodeGen builds it from `project
 
 ```bash
 cd ios
-cp Signing.example.xcconfig Signing.xcconfig
 xcodegen generate
 open NextStop.xcodeproj
 ```
 
-**Simulator builds need no Apple Developer account** — they are unsigned. Leave
-`DEVELOPMENT_TEAM` empty in `Signing.xcconfig` and the whole thing compiles and runs.
-Fill the Team ID in only when building for a real device.
+**Simulator builds need no Apple Developer account** — they are unsigned, and nothing in
+`project.yml` names a team. For device builds `xcode-project use-profiles` writes the team
+and the profile into the generated project during CI, so there is nothing to configure by
+hand and no signing file to keep in sync.
 
 The simulator will not answer the actual question: it cannot be locked, pocketed, or
 taken through a tunnel. It only proves the code compiles and the layouts render.
