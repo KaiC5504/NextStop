@@ -91,9 +91,40 @@ the coverage column.
 ## Getting the data back
 
 The SQLite file lives at `~/NextStop/collector/nextstop.db`. Either build the report on
-the VPS and copy the output, or pull the database down and report locally:
+the VPS and copy the output, or pull the database down and report locally. Copy it under
+a different name — `nextstop.db` locally is a scratch database from development, and
+overwriting it loses nothing but confuses the next person to look:
 
 ```bash
-scp youruser@your-vps:~/NextStop/collector/nextstop.db ./collector/nextstop.db
-cd collector && uv run nextstop report
+scp KaiCVPS:~/NextStop/collector/nextstop.db ./collector/vps.db
+cd collector && NEXTSTOP_DATABASE_URL=sqlite:///vps.db uv run nextstop report
 ```
+
+## Ground truth (optional, and the only arm that proves correctness)
+
+Everything above measures whether the realtime feed *disagrees* with the timetable.
+Nothing in it shows which one was right. That takes a human on a platform, so it is two
+iOS Shortcuts posting a timestamp — one "Boarded", one "Arrived".
+
+`nextstop-api.service` is a long-running server rather than a timer. Install it the same
+way as the others, then:
+
+```bash
+systemctl --user enable --now nextstop-api.service
+curl -s localhost:8000/health
+```
+
+It binds to **127.0.0.1**, so it is not reachable from a phone until it is fronted by a
+reverse proxy with a certificate. The endpoint authenticates with a token in a plain
+header, and publishing that over `http://` puts the token on the open internet in
+cleartext. With Caddy that is one line:
+
+```
+nextstop.example.com {
+    reverse_proxy 127.0.0.1:8000
+}
+```
+
+Then `uv run nextstop shortcut --base-url https://nextstop.example.com` prints the two
+Shortcuts to build. Verify end to end with the `curl` it prints, and check the row
+arrived with `GET /observations/recent`.

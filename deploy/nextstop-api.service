@@ -1,0 +1,25 @@
+[Unit]
+Description=NextStop ground-truth ingest endpoint
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# A long-running server, unlike the two oneshot samplers. Nothing else in this project
+# needs to stay up — this exists only so the "Boarded" and "Arrived" Shortcuts have
+# somewhere to POST to, which is the arm that shows the realtime estimate was right
+# rather than merely different from the timetable.
+Type=simple
+WorkingDirectory=%h/NextStop/collector
+EnvironmentFile=%h/NextStop/collector/.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin
+ExecStart=/usr/bin/env uv run nextstop serve --host 127.0.0.1 --port 8000
+
+# Bound to loopback deliberately. The token travels in a plain header, so the endpoint
+# is reached through an HTTPS reverse proxy rather than exposed directly. Binding
+# 0.0.0.0 would put a bearer token on the open internet in cleartext.
+
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
