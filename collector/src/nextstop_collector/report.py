@@ -28,6 +28,12 @@ from .timeutil import SYDNEY  # noqa: E402
 
 LATE_THRESHOLD_SECONDS = 120
 
+# Charts only. A long thin tail of very late services widens the x-axis until everything
+# real is compressed into one bar. Excluded from the plots, counted in the text, never
+# silently dropped. The y-axis is logarithmic for the same reason: on a linear axis the
+# on-time bar is so tall that the late tail — the entire point — is invisible.
+CHART_LIMIT_MINUTES = 20
+
 
 def load_samples() -> pd.DataFrame:
     with session_scope() as session:
@@ -90,25 +96,63 @@ def latest_view(frame: pd.DataFrame) -> pd.DataFrame:
 
 def _plot_delay(frame: pd.DataFrame, path: Path) -> bool:
     usable = frame.dropna(subset=["api_delay_min"])
+    usable = usable[usable.api_delay_min.abs() <= CHART_LIMIT_MINUTES]
     if usable.empty:
         return False
 
     has_gap = usable.naive_gap_min.notna().any()
     fig, axes = plt.subplots(1, 2 if has_gap else 1, figsize=(11 if has_gap else 6, 4), squeeze=False)
 
-    axes[0][0].hist(usable.api_delay_min, bins=40, color="#4C72B0")
+    bins = range(-CHART_LIMIT_MINUTES, CHART_LIMIT_MINUTES + 1)
+    axes[0][0].hist(usable.api_delay_min, bins=bins, color="#4C72B0")
     axes[0][0].set_title("Realtime minus planned (Trip Planner)")
     axes[0][0].set_xlabel("minutes late")
-    axes[0][0].set_ylabel("departures")
+    axes[0][0].set_ylabel("departures (log scale)")
+    axes[0][0].set_yscale("log")
     axes[0][0].axvline(0, color="black", linewidth=1, linestyle="--")
 
     if has_gap:
-        axes[0][1].hist(usable.naive_gap_min.dropna(), bins=40, color="#DD8452")
+        axes[0][1].hist(usable.naive_gap_min.dropna(), bins=bins, color="#DD8452")
         axes[0][1].set_title("Realtime minus published timetable")
         axes[0][1].set_xlabel("minutes a naive app would be wrong by")
-        axes[0][1].set_ylabel("departures")
+        axes[0][1].set_ylabel("departures (log scale)")
+        axes[0][1].set_yscale("log")
         axes[0][1].axvline(0, color="black", linewidth=1, linestyle="--")
 
+    fig.tight_layout()
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+    return True
+
+
+def _plot_by_mode(frame: pd.DataFrame, path: Path) -> bool:
+    """The headline chart: how often each mode is late enough to make you miss it."""
+    usable = frame.dropna(subset=["api_delay_min"])
+    if usable.empty:
+        return False
+
+    rows = []
+    for mode, subset in usable.groupby("mode"):
+        if len(subset) < 50:
+            continue
+        late = (subset.api_delay_seconds > LATE_THRESHOLD_SECONDS).mean() * 100
+        rows.append((mode, late, len(subset)))
+    if not rows:
+        return False
+    rows.sort(key=lambda row: row[1])
+
+    fig, ax = plt.subplots(figsize=(8, 0.6 * len(rows) + 1.8))
+    labels = [f"{mode}\nn={count}" for mode, _, count in rows]
+    values = [late for _, late, _ in rows]
+    # Coloured by the same threshold the bars measure, so the chart reads without a legend.
+    colours = ["#55A868" if v < 10 else "#DD8452" if v < 40 else "#C44E52" for v in values]
+    ax.barh(labels, values, color=colours)
+    for index, value in enumerate(values):
+        ax.text(value + 1, index, f"{value:.0f}%", va="center", fontsize=9)
+    ax.set_xlim(0, max(values) * 1.18)
+    ax.set_xlabel("% of departures more than 2 minutes late")
+    ax.set_title("Where realtime data actually matters")
+    ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     fig.savefig(path, dpi=140)
     plt.close(fig)
@@ -152,6 +196,35 @@ def _delay_table(frame: pd.DataFrame) -> str:
         lines.append(
             f"| {label} | {len(subset)} | {subset.api_delay_min.median():.1f} min | "
             f"{subset.api_delay_min.quantile(0.9):.1f} min | {late:.0f}% |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _mode_table(frame: pd.DataFrame) -> str:
+    """Per-mode breakdown — the part that actually decides where realtime data is worth it.
+
+    Aggregated over every mode at once, the median delay is zero and the finding looks
+    like "the timetable is fine". Split by mode it is nothing of the sort.
+    """
+    usable = frame.dropna(subset=["api_delay_min"])
+    if usable.empty:
+        return ""
+
+    lines = [
+        "| Mode | Departures | Exactly on time | Late by >2 min | Median | 90th pct |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    ordered = usable.groupby("mode").api_delay_seconds.count().sort_values(ascending=False)
+    for mode in ordered.index:
+        subset = usable[usable["mode"] == mode]
+        if len(subset) < 50:
+            continue
+        lines.append(
+            f"| {mode} | {len(subset)} | "
+            f"{(subset.api_delay_seconds == 0).mean() * 100:.0f}% | "
+            f"{(subset.api_delay_seconds > LATE_THRESHOLD_SECONDS).mean() * 100:.0f}% | "
+            f"{subset.api_delay_min.median():.1f} min | "
+            f"{subset.api_delay_min.quantile(0.9):.1f} min |"
         )
     return "\n".join(lines) + "\n"
 
@@ -219,16 +292,36 @@ def build_report(output_dir: Path) -> Path:
         return path
 
     realtime_coverage = frame.estimated_departure.notna().mean() * 100
+    delayed = frame.dropna(subset=["api_delay_min"])
+    extreme = int(delayed.api_delay_min.abs().gt(CHART_LIMIT_MINUTES).sum())
+
     sections += [
         "## How late do services actually run?\n\n",
         f"Realtime coverage: **{realtime_coverage:.0f}%** of departures carried a live estimate.\n\n",
         _delay_table(frame),
+        "\n### By mode\n\n",
+        "Aggregated across all modes the median delay is zero, which reads as "
+        "\"the timetable is fine\". Split by mode it is not.\n\n",
+        _mode_table(frame),
+    ]
+
+    if _plot_by_mode(frame, output_dir / "late-by-mode.png"):
+        sections.append("\n![Late by mode](late-by-mode.png)\n")
+
+    sections += [
         "\n## What a timetable-only app would miss\n\n",
         _naive_gap_section(frame),
     ]
 
     if _plot_delay(frame, output_dir / "delay-distribution.png"):
         sections.append("\n![Delay distribution](delay-distribution.png)\n")
+        if extreme:
+            sections.append(
+                f"\n_{extreme} departures more than {CHART_LIMIT_MINUTES} minutes from "
+                "their planned time are excluded from the histograms above, where they "
+                "would flatten everything else into a single bar. They remain in every "
+                "figure in the tables._\n"
+            )
     if _plot_by_hour(frame, output_dir / "delay-by-hour.png"):
         sections.append("\n![Delay by hour](delay-by-hour.png)\n")
 

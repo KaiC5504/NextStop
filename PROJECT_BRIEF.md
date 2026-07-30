@@ -42,7 +42,7 @@ These are the acceptance criteria. Track them explicitly.
 
 | #   | Requirement                                                                                 | Status      |
 | --- | ------------------------------------------------------------------------------------------- | ----------- |
-| R1  | Routing and departure times match Opal Travel, not Google's approximations                  | **Collecting since 2026-07-27**, unattended on the VPS. Report after ~3 weekdays |
+| R1  | Routing and departure times match Opal Travel, not Google's approximations                  | **Answered, mode-dependent** — see `docs/findings/`. 22,517 departures over 3 days: Metro 0% late >2 min, Train 8%, Bus 28%, Light Rail 63%. Realtime is decisive for surface transport and near-worthless for Metro |
 | R2  | A real map showing my route and current position, comparable to Google Maps                 | Not started |
 | R3  | Live Activity on the Lock Screen **and** Dynamic Island for an active journey               | Signed build on TestFlight (2026-07-31); all 5 presentations render in the simulator. **Still unproven on device** — the tunnel question needs a real commute |
 | R4  | "Get off at the next stop" alert that fires reliably with the phone locked and in my pocket | Design revised to two mechanisms — see §5.2. Depends on the R3 spike result |
@@ -540,11 +540,7 @@ Remaining, in order:
 1. **Ride the Metro with the spike running** (Stage C), once per mechanism including
 the control. Procedure in `ios/README.md`. Everything upstream of this is done: the
 signed build reached TestFlight on 2026-07-31.
-2. **After ~3 weekdays of collection**, pull `nextstop.db` and run `nextstop report`.
-The two things to look for: whether `naive_gap` diverges from zero at peak, and whether
-buses diverge more than Metro. Exclude gaps over an hour from the published charts, and
-say so — a single route-280 departure at 7,842s skews the mean on its own.
-3. **Capture ground truth.** The `observation` table is the arm that shows the realtime
+2. **Capture ground truth.** The `observation` table is the arm that shows the realtime
 estimate matched reality rather than merely differing from the timetable, and it stays
 empty until the two Shortcuts from `nextstop shortcut` get tapped on a real trip.
 
