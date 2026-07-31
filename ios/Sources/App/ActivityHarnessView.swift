@@ -26,7 +26,9 @@ struct ActivityHarnessView: View {
     }
 
     @State private var family: Family = .journey
-    @State private var scenario: JourneyScenario = .waitingLate
+    // Riding first: it is the layout with the most going on (station ticks, stop
+    // counter, next-stop caption), and the CI screenshot captures only the default.
+    @State private var scenario: JourneyScenario = .riding
     @State private var isStale = false
 
     @State private var tick = 128
