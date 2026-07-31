@@ -1,3 +1,4 @@
+import CoreLocation
 import XCTest
 @testable import NextStop
 
@@ -11,7 +12,7 @@ final class JourneyActivityStateTests: XCTestCase {
         origin: String, destination: String,
         plannedDeparture: TimeInterval?, estimatedDeparture: TimeInterval? = nil,
         plannedArrival: TimeInterval?, estimatedArrival: TimeInterval? = nil,
-        realtime: Bool = false
+        realtime: Bool = false, stops: [LegStop] = []
     ) -> Leg {
         Leg(
             id: id, mode: mode, route: route, headsign: headsign,
@@ -20,8 +21,29 @@ final class JourneyActivityStateTests: XCTestCase {
             estimatedDeparture: estimatedDeparture.map(base.addingTimeInterval),
             plannedArrival: plannedArrival.map(base.addingTimeInterval),
             estimatedArrival: estimatedArrival.map(base.addingTimeInterval),
-            hasRealtime: realtime, path: [], stops: [], durationSeconds: nil
+            hasRealtime: realtime, path: [], stops: stops, durationSeconds: nil
         )
+    }
+
+    private func stop(_ name: String, arrival: TimeInterval?, departure: TimeInterval? = nil) -> LegStop {
+        LegStop(
+            id: name, name: name,
+            coordinate: CLLocationCoordinate2D(latitude: -33.8, longitude: 151.2),
+            departure: departure.map(base.addingTimeInterval),
+            arrival: arrival.map(base.addingTimeInterval)
+        )
+    }
+
+    private var trainStops: [LegStop] {
+        [
+            stop("Chatswood", arrival: nil, departure: 780),
+            stop("Artarmon", arrival: 1_000),
+            stop("St Leonards", arrival: 1_240),
+            stop("Wollstonecraft", arrival: 1_500),
+            stop("North Sydney", arrival: 1_800),
+            stop("Wynyard", arrival: 2_100),
+            stop("Central", arrival: 2_400),
+        ]
     }
 
     private func journey(trainEstimate: TimeInterval? = 780) -> Journey {
@@ -31,7 +53,7 @@ final class JourneyActivityStateTests: XCTestCase {
             leg(id: "train", mode: .train, route: "T1", headsign: "Central via Gordon",
                 origin: "Chatswood Station", destination: "Central",
                 plannedDeparture: 600, estimatedDeparture: trainEstimate,
-                plannedArrival: 2400, realtime: true),
+                plannedArrival: 2400, realtime: true, stops: trainStops),
             leg(id: "walk2", mode: .walk, origin: "Central", destination: "USyd City Rd",
                 plannedDeparture: 2500, plannedArrival: 3400),
         ]
@@ -92,9 +114,55 @@ final class JourneyActivityStateTests: XCTestCase {
     /// with no new facts must derive an identical value. A now-based field sneaking
     /// into the schema is exactly what this catches.
     func testDerivationIsStableAcrossASecond() {
-        for offset: TimeInterval in [100, 400, 1_000, 4_000] {
+        for offset: TimeInterval in [100, 400, 1_000, 1_100, 2_000, 4_000] {
             XCTAssertEqual(derive(at: offset), derive(at: offset + 1), "unstable at offset \(offset)")
         }
+    }
+
+    func testRidingCarriesStationProgress() throws {
+        let state = try XCTUnwrap(derive(at: 1_100))
+        XCTAssertEqual(state.stopIndex, 2, "Chatswood and Artarmon are behind us")
+        XCTAssertEqual(state.stopCount, 7)
+        XCTAssertEqual(state.nextStopName, "St Leonards")
+        // Intermediate arrivals mapped into the 780...2400 countdown, 3-dp quantized.
+        XCTAssertEqual(state.stopFractions, [0.136, 0.284, 0.444, 0.63, 0.815])
+    }
+
+    /// Crossing a stop time may move only the discrete station facts — the anchors and
+    /// fractions the bar animates over must hold still or every crossing redraws it.
+    func testPassingAStopChangesOnlyTheStationFields() throws {
+        let before = try XCTUnwrap(derive(at: 1_239))
+        let after = try XCTUnwrap(derive(at: 1_241))
+        XCTAssertEqual(before.stopIndex, 2)
+        XCTAssertEqual(after.stopIndex, 3)
+        XCTAssertEqual(before.nextStopName, "St Leonards")
+        XCTAssertEqual(after.nextStopName, "Wollstonecraft")
+        XCTAssertEqual(before.stopFractions, after.stopFractions)
+        XCTAssertEqual(before.countdownStart, after.countdownStart)
+        XCTAssertEqual(before.countdownEnd, after.countdownEnd)
+    }
+
+    func testStationFieldsAreNilOffTheRidingPhase() throws {
+        for offset: TimeInterval in [100, 400, 4_000] {
+            let state = try XCTUnwrap(derive(at: offset))
+            XCTAssertNil(state.stopIndex, "at offset \(offset)")
+            XCTAssertNil(state.stopCount, "at offset \(offset)")
+            XCTAssertNil(state.nextStopName, "at offset \(offset)")
+            XCTAssertNil(state.stopFractions, "at offset \(offset)")
+        }
+    }
+
+    func testRidingWithoutAStopSequenceDerivesNilProgress() throws {
+        var legs = journey().legs
+        legs[1] = leg(id: "train", mode: .train, route: "T1",
+                      origin: "Chatswood Station", destination: "Central",
+                      plannedDeparture: 600, estimatedDeparture: 780,
+                      plannedArrival: 2_400, realtime: true)
+        let state = try XCTUnwrap(derive(at: 1_000, journey: Journey(id: "test", legs: legs)))
+        XCTAssertEqual(state.phase, .riding)
+        XCTAssertNil(state.stopIndex)
+        XCTAssertNil(state.stopCount)
+        XCTAssertNil(state.stopFractions)
     }
 
     func testReplanMovesTheCountdownTarget() throws {
@@ -135,7 +203,11 @@ final class JourneyActivityStateTests: XCTestCase {
             countdownEnd: Date(timeIntervalSince1970: 1_800_003_600),
             status: .late(12), arrivalShort: "12:59 pm",
             legIndex: 8, legCount: 12,
-            nextLegLine: "Then \(longName) · 12:59 pm"
+            nextLegLine: "Then \(longName) · 12:59 pm",
+            stopIndex: 47, stopCount: 48,
+            nextStopName: longName,
+            // The 46-intermediate cap: the longest stop sequence the payload will carry.
+            stopFractions: (1...46).map { (Double($0) / 47 * 1_000).rounded() / 1_000 }
         )
         let encoded = try JSONEncoder().encode(state)
         XCTAssertLessThan(encoded.count, 3_500)

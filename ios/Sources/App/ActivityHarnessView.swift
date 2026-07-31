@@ -17,6 +17,7 @@ struct ActivityHarnessView: View {
         case waitingLate = "Waiting · very late bus"
         case waitingOnTime = "Waiting · on time"
         case riding = "Riding the Metro"
+        case ridingNoStops = "Riding · no stop data"
         case walking = "Walking · connection"
         case scheduledOnly = "Scheduled only"
         case arrived = "Arrived"
@@ -25,7 +26,9 @@ struct ActivityHarnessView: View {
     }
 
     @State private var family: Family = .journey
-    @State private var scenario: JourneyScenario = .waitingLate
+    // Riding first: it is the layout with the most going on (station ticks, stop
+    // counter, next-stop caption), and the CI screenshot captures only the default.
+    @State private var scenario: JourneyScenario = .riding
     @State private var isStale = false
 
     @State private var tick = 128
@@ -79,7 +82,17 @@ struct ActivityHarnessView: View {
                 phase: .riding, mode: .metro, routeBadge: "M1", headsign: "Tallawong",
                 place: "Martin Place", countdownStart: now.addingTimeInterval(-380),
                 countdownEnd: now.addingTimeInterval(520), status: .onTime,
-                arrivalShort: "8:14 am", legIndex: 1, legCount: 1, nextLegLine: nil
+                arrivalShort: "8:14 am", legIndex: 1, legCount: 1, nextLegLine: nil,
+                stopIndex: 3, stopCount: 11, nextStopName: "St Leonards",
+                // Deliberately uneven, like a real stopping pattern.
+                stopFractions: [0.06, 0.13, 0.22, 0.28, 0.41, 0.55, 0.63, 0.78, 0.9]
+            )
+        case .ridingNoStops:
+            .init(
+                phase: .riding, mode: .bus, routeBadge: "428", headsign: "Canterbury",
+                place: "Newtown", countdownStart: now.addingTimeInterval(-300),
+                countdownEnd: now.addingTimeInterval(700), status: .onTime,
+                arrivalShort: "11:06 pm", legIndex: 2, legCount: 2, nextLegLine: nil
             )
         case .walking:
             .init(
@@ -117,7 +130,9 @@ struct ActivityHarnessView: View {
         .padding()
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
 
-        presentation("Lock Screen", height: 110) {
+        // Tall enough for the riding scenario's extra stop caption; a shorter frame
+        // clips it and the screenshot lies.
+        presentation("Lock Screen", height: 124) {
             JourneyLockScreenView(state: journeyState, isStale: isStale)
         }
 

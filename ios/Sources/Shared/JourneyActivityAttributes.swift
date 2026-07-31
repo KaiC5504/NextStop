@@ -38,6 +38,17 @@ struct JourneyActivityAttributes: ActivityAttributes {
         var legCount: Int
         /// "Then T1 · 5:12 pm" — the connection that matters while walking or waiting.
         var nextLegLine: String?
+        /// Station progress, riding phase only; nil elsewhere and for legs without a
+        /// usable stop sequence. `stopIndex` is the 1-based count of stops already
+        /// passed — it moves in whole stops, never continuously.
+        var stopIndex: Int? = nil
+        var stopCount: Int? = nil
+        var nextStopName: String? = nil
+        /// Intermediate stops' positions inside countdownStart...countdownEnd as 0–1
+        /// fractions, 3-dp quantized: the bar's tick marks, honest about uneven gaps.
+        /// Real fractions cost ~6 bytes a stop; equal spacing would misdraw every
+        /// express pattern for the sake of bytes nobody needs back.
+        var stopFractions: [Double]? = nil
     }
 
     /// Only the destination, on purpose: a replan that swaps journeys to the same place

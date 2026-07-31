@@ -70,14 +70,49 @@ enum JourneyActivityState {
                 nextLegLine: nextLegLine(for: nextTransit)
             )
         } else {
+            let start = leg.departure ?? startedAt
+            let end = leg.arrival ?? fallback
             return state(
                 phase: .riding, leg: leg, routeBadge: leg.route, headsign: leg.headsign,
                 place: leg.destinationName,
-                start: leg.departure ?? startedAt, end: leg.arrival ?? fallback,
+                start: start, end: end,
                 status: DepartureStatus(leg: leg), arrivalShort: arrivalShort,
-                legIndex: index + 1, legCount: legCount, nextLegLine: nil
+                legIndex: index + 1, legCount: legCount, nextLegLine: nil,
+                stops: rideStops(for: leg, start: start, end: end, now: now)
             )
         }
+    }
+
+    /// Station progress for the riding phase. Every field is anchored to stop times, so
+    /// between stops equal inputs still derive equal states — `stopIndex` and the next
+    /// stop's name move only when a stop is actually passed, the same discrete class of
+    /// change as a phase flip.
+    private struct RideStops {
+        let index: Int
+        let count: Int
+        let nextName: String?
+        let fractions: [Double]
+    }
+
+    /// Sequences longer than this ship a tick-less bar: the caption still counts the
+    /// stops, and the payload stays bounded. Sydney's longest stopping patterns are
+    /// around 25 stops, so the cap is slack, not a limit anyone rides into.
+    private static let maxTickStops = 46
+
+    private static func rideStops(for leg: Leg, start: Date, end: Date, now: Date) -> RideStops? {
+        guard leg.stops.count >= 2 else { return nil }
+        let times = leg.stops.compactMap { $0.arrival ?? $0.departure }
+        let next = leg.stops.first { stop in
+            (stop.arrival ?? stop.departure).map { $0 > now } == true
+        }
+        let intermediates = leg.stops.dropFirst().dropLast().compactMap { $0.arrival ?? $0.departure }
+        return RideStops(
+            index: min(max(StopProgress.passedCount(times: times, now: now), 1), leg.stops.count),
+            count: leg.stops.count,
+            nextName: next?.name,
+            fractions: intermediates.count > Self.maxTickStops
+                ? [] : StopProgress.tickFractions(times: intermediates, start: start, end: end)
+        )
     }
 
     /// `Text(timerInterval:)` traps on a range whose start exceeds its end, and replans
@@ -85,13 +120,16 @@ enum JourneyActivityState {
     private static func state(
         phase: JourneyActivityPhase, leg: Leg, routeBadge: String?, headsign: String?,
         place: String, start: Date, end: Date, status: DepartureStatus,
-        arrivalShort: String, legIndex: Int, legCount: Int, nextLegLine: String?
+        arrivalShort: String, legIndex: Int, legCount: Int, nextLegLine: String?,
+        stops: RideStops? = nil
     ) -> JourneyActivityAttributes.ContentState {
         JourneyActivityAttributes.ContentState(
             phase: phase, mode: leg.mode, routeBadge: routeBadge, headsign: headsign,
             place: place, countdownStart: min(start, end), countdownEnd: end,
             status: status, arrivalShort: arrivalShort,
-            legIndex: legIndex, legCount: legCount, nextLegLine: nextLegLine
+            legIndex: legIndex, legCount: legCount, nextLegLine: nextLegLine,
+            stopIndex: stops?.index, stopCount: stops?.count,
+            nextStopName: stops?.nextName, stopFractions: stops?.fractions
         )
     }
 
