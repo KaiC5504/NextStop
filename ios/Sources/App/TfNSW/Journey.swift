@@ -6,6 +6,7 @@ struct LegStop: Identifiable {
     let name: String
     let coordinate: CLLocationCoordinate2D
     let departure: Date?
+    let arrival: Date?
 }
 
 struct Leg: Identifiable {
@@ -27,6 +28,12 @@ struct Leg: Identifiable {
     var departure: Date? { estimatedDeparture ?? plannedDeparture }
     var arrival: Date? { estimatedArrival ?? plannedArrival }
 
+    /// Stops ridden past — "6 stops" for a 7-entry sequence. Nil when the sequence is
+    /// missing or too short to count.
+    var rideStopCount: Int? {
+        stops.count >= 2 ? stops.count - 1 : nil
+    }
+
     /// Nil when there is no estimate to compare, which is different from zero. Zero means
     /// "tracked and on time"; nil means "nobody is tracking this".
     var delaySeconds: Int? {
@@ -46,6 +53,15 @@ struct Journey: Identifiable {
     var duration: TimeInterval? {
         guard let departure, let arrival else { return nil }
         return arrival.timeIntervalSince(departure)
+    }
+
+    /// Seconds on foot across the whole journey, for the route list's "12 min walk".
+    var totalWalkSeconds: Int {
+        legs.filter(\.mode.isWalking).reduce(0) { total, leg in
+            if let seconds = leg.durationSeconds { return total + seconds }
+            guard let departure = leg.departure, let arrival = leg.arrival else { return total }
+            return total + Int(arrival.timeIntervalSince(departure))
+        }
     }
 
     /// The leg being travelled — or waited for — at `date`: the first one not yet
@@ -110,7 +126,8 @@ extension LegStop {
             id: dto.id ?? UUID().uuidString,
             name: dto.disassembledName ?? dto.name ?? "",
             coordinate: coordinate,
-            departure: dto.departureTimeEstimated ?? dto.departureTimePlanned
+            departure: dto.departureTimeEstimated ?? dto.departureTimePlanned,
+            arrival: dto.arrivalTimeEstimated ?? dto.arrivalTimePlanned
         )
     }
 }

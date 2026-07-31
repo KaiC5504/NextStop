@@ -75,6 +75,9 @@ struct TfNSWClient {
             URLQueryItem(name: "name_origin", value: originID),
             URLQueryItem(name: "type_destination", value: destinationType),
             URLQueryItem(name: "name_destination", value: destinationID),
+            // The EFA default is whatever the server feels like; six covers the option
+            // list without paying for journeys nobody scrolls to.
+            URLQueryItem(name: "calcNumberOfTrips", value: "6"),
             URLQueryItem(name: "TfNSWTR", value: "true"),
         ])
 

@@ -76,4 +76,34 @@ final class JourneyMappingTests: XCTestCase {
             XCTAssertFalse(journey.transitLegs.contains { $0.mode.isWalking })
         }
     }
+
+    func testStopSequencesCountRiddenStopsAndCarryArrivals() throws {
+        let metro = try XCTUnwrap(journeys().first?.transitLegs.first)
+        XCTAssertEqual(metro.stops.count, 7)
+        XCTAssertEqual(metro.rideStopCount, 6)
+        XCTAssertTrue(metro.stops.dropFirst().allSatisfy { $0.arrival != nil })
+    }
+
+    func testRideStopCountHidesWhenTheSequenceIsTooShort() {
+        XCTAssertNil(leg(planned: nil, estimated: nil, realtime: false).rideStopCount)
+    }
+
+    func testTotalWalkSecondsSumsTheWalkingLegs() throws {
+        let journey = try XCTUnwrap(journeys().first)
+        XCTAssertEqual(journey.totalWalkSeconds, 540)
+    }
+
+    /// TfNSW occasionally omits a walk leg's `duration`; the leg's own span is the
+    /// honest fallback, and legs with neither contribute nothing.
+    func testTotalWalkSecondsFallsBackToTheLegSpan() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let walk = Leg(
+            id: "w", mode: .walk, route: nil, headsign: nil,
+            originName: "A", destinationName: "B",
+            plannedDeparture: start, estimatedDeparture: nil,
+            plannedArrival: start.addingTimeInterval(420), estimatedArrival: nil,
+            hasRealtime: false, path: [], stops: [], durationSeconds: nil
+        )
+        XCTAssertEqual(Journey(id: "j", legs: [walk]).totalWalkSeconds, 420)
+    }
 }
