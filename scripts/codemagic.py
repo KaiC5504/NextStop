@@ -14,8 +14,10 @@ this repository. Nothing here writes a token anywhere.
 
 from __future__ import annotations
 
+import html
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -64,6 +66,21 @@ def call(path: str, payload: dict | None = None) -> dict:
         raise SystemExit(f"{error.code} from {path}: {body}") from None
 
 
+def step_log(url: str) -> str:
+    """Fetch one build step's log.
+
+    Undocumented — the endpoint only shows up as `logUrl` on a build action. It returns
+    text with colour applied as HTML spans, so it needs unwrapping before it is readable.
+    """
+    request = urllib.request.Request(url, headers={"x-auth-token": token()})
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            body = response.read().decode(errors="replace")
+    except urllib.error.HTTPError as error:
+        return f"(could not fetch log: HTTP {error.code})"
+    return html.unescape(re.sub(r"</?span[^>]*>", "", body))
+
+
 def app_id() -> str:
     apps = call("/apps").get("applications", [])
     if not apps:
@@ -99,14 +116,15 @@ def report(build: dict) -> None:
         marker = "x" if state == "failed" else ("-" if state in {"skipped", "pending"} else "+")
         print(f"  {marker} {name}: {state}")
 
-    failed = [a for a in actions if a.get("status") == "failed"]
-    for action in failed:
-        # Not every response carries inline output. When it does, the tail is the part that
-        # says why; when it does not, the URL above is the only place the log exists.
-        log = action.get("log") or action.get("output") or ""
-        if log:
-            print(f"\n--- {action.get('name')} (last 60 lines) ---")
-            print("\n".join(log.splitlines()[-60:]))
+    if build.get("message"):
+        print(f"\n{build['message'].strip()}")
+
+    for action in actions:
+        if action.get("status") != "failed" or not action.get("logUrl"):
+            continue
+        lines = [line for line in step_log(action["logUrl"]).splitlines() if line.strip()]
+        print(f"\n--- {action.get('name')}: last {min(len(lines), 60)} lines ---")
+        print("\n".join(lines[-60:]))
 
 
 def cmd_status() -> int:
