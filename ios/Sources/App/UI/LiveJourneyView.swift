@@ -40,8 +40,10 @@ struct LiveJourneyView: View {
         }
         .navigationTitle(model.destination?.name ?? "Journey")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { model.startJourneyActivity() }
         .onReceive(tick) { instant in
             now = instant
+            model.syncJourneyActivity(now: instant)
             if instant.timeIntervalSince(lastRefresh) >= refreshEvery {
                 lastRefresh = instant
                 Task { await model.refresh() }

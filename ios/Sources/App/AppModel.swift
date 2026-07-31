@@ -17,6 +17,11 @@ final class AppModel: ObservableObject {
     let store: LocalStore
     let location = LocationProvider()
     private let client: TfNSWClient
+    private let journeyActivity = JourneyActivityController()
+    /// Set the first time the live journey screen opens for the current destination —
+    /// that tap is the commitment signal that starts the Live Activity. Also the fixed
+    /// anchor the state deriver needs to stay stable across ticks.
+    private var activityStartedAt: Date?
 
     @Published var destination: StopSuggestion?
     @Published var journeys: [Journey] = []
@@ -30,6 +35,7 @@ final class AppModel: ObservableObject {
     init(client: TfNSWClient = TfNSWClient(), store: LocalStore = .shared) {
         self.client = client
         self.store = store
+        Task { await journeyActivity.sweepOrphans() }
     }
 
     var selectedJourney: Journey? {
@@ -76,6 +82,12 @@ final class AppModel: ObservableObject {
     }
 
     func plan(to stop: StopSuggestion) async {
+        // A new destination invalidates the running activity. Same-destination replans
+        // update it in place instead — that path never comes through here.
+        if let current = destination, current.id != stop.id {
+            activityStartedAt = nil
+            await journeyActivity.end()
+        }
         destination = stop
         departAt = Date()
         selectedJourneyID = nil
@@ -91,6 +103,8 @@ final class AppModel: ObservableObject {
     }
 
     func reset() {
+        activityStartedAt = nil
+        Task { await journeyActivity.end() }
         destination = nil
         journeys = []
         selectedJourneyID = nil
@@ -123,6 +137,34 @@ final class AppModel: ObservableObject {
             journeys = []
             selectedJourneyID = nil
             phase = .failed(.transport)
+        }
+        syncJourneyActivity(now: Date())
+    }
+
+    func startJourneyActivity() {
+        guard destination != nil, selectedJourney != nil else { return }
+        if activityStartedAt == nil { activityStartedAt = Date() }
+        syncJourneyActivity(now: Date())
+    }
+
+    /// Called every second while the journey screen ticks. Cheap by design: the
+    /// derivation is pure, and the controller only talks to ActivityKit when the
+    /// derived state actually changed.
+    func syncJourneyActivity(now: Date) {
+        guard let startedAt = activityStartedAt,
+              let destination,
+              let journey = selectedJourney,
+              let state = JourneyActivityState.make(
+                  journey: journey, destinationName: destination.name,
+                  startedAt: startedAt, now: now
+              )
+        else { return }
+        Task {
+            if state.phase == .arrived {
+                await journeyActivity.endArrived(finalState: state)
+            } else {
+                await journeyActivity.sync(state: state, destinationName: destination.name, startedAt: startedAt)
+            }
         }
     }
 }
