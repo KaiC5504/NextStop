@@ -14,7 +14,11 @@ struct LiveJourneyView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            JourneyMapView(journey: model.selectedJourney, bottomInset: 460 + Theme.Spacing.s)
+            JourneyMapView(
+                journey: model.selectedJourney,
+                activeLegID: model.selectedJourney?.activeLeg(at: now)?.id,
+                bottomInset: 460 + Theme.Spacing.s
+            )
 
             if let journey = model.selectedJourney {
                 ScrollView {
@@ -39,6 +43,8 @@ struct LiveJourneyView: View {
         }
         .navigationTitle(model.destination?.name ?? "Journey")
         .navigationBarTitleDisplayMode(.inline)
+        // A leg transition is the one moment worth a physical nudge mid-journey.
+        .sensoryFeedback(.impact(weight: .medium), trigger: model.selectedJourney?.activeLeg(at: now)?.id)
         .onAppear { model.startJourneyActivity() }
         .onReceive(tick) { instant in
             now = instant

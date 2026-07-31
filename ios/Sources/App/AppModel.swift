@@ -29,6 +29,9 @@ final class AppModel: ObservableObject {
     @Published var searchResults: [StopSuggestion] = []
     @Published var searchError: TfNSWError?
     @Published var phase: Phase = .idle
+    /// True when the shown journeys start at the Chatswood fallback rather than the
+    /// user. The fallback is deliberate; hiding it from the user would not be.
+    @Published private(set) var plannedFromFallback = false
 
     private var departAt: Date?
 
@@ -114,10 +117,12 @@ final class AppModel: ObservableObject {
         searchError = nil
         departAt = nil
         phase = .idle
+        plannedFromFallback = false
     }
 
     private func load(recordRecent: Bool) async {
         guard let destination, let departAt else { return }
+        let usedFallback = location.coordinate == nil
         do {
             let found = try await client.journeys(
                 originID: originID,
@@ -130,6 +135,7 @@ final class AppModel: ObservableObject {
                 selectedJourneyID = found.first?.id
             }
             if recordRecent { store.addRecent(destination) }
+            plannedFromFallback = usedFallback
             phase = found.isEmpty ? .noService : .ready
         } catch let error as TfNSWError {
             journeys = []

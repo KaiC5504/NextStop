@@ -54,4 +54,12 @@ final class MapRegionTests: XCTestCase {
         XCTAssertEqual(MapFraming.sydney.center.latitude, -33.87, accuracy: 0.05)
         XCTAssertEqual(MapFraming.sydney.center.longitude, 151.21, accuracy: 0.05)
     }
+
+    /// Zero is "camera has not reported yet", which must hide the dots — the alternative
+    /// is a city-wide journey drawing hundreds of annotations on first render.
+    func testIntermediateStopsShowOnlyWhenZoomedIn() {
+        XCTAssertFalse(MapFraming.showsIntermediateStops(cameraDistance: 0))
+        XCTAssertTrue(MapFraming.showsIntermediateStops(cameraDistance: 10_000))
+        XCTAssertFalse(MapFraming.showsIntermediateStops(cameraDistance: 40_000))
+    }
 }

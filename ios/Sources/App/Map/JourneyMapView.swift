@@ -37,10 +37,19 @@ enum MapFraming {
             )
         )
     }
+
+    /// Camera distance in metres below which per-leg stop dots earn their clutter.
+    /// Zero means the camera has not reported yet, which must read as "too far out".
+    static func showsIntermediateStops(cameraDistance: Double) -> Bool {
+        cameraDistance > 0 && cameraDistance < 25_000
+    }
 }
 
 struct JourneyMapView: View {
     let journey: Journey?
+    /// The leg currently being travelled, when the caller tracks progress. Legs before
+    /// it render dimmed and thinner; the leg itself slightly heavier.
+    var activeLegID: String? = nil
     /// Height of whatever the caller lays over the bottom of the map, so the recenter
     /// button clears it.
     var bottomInset: CGFloat = 0
@@ -55,6 +64,7 @@ struct JourneyMapView: View {
     /// Unwrapped accumulator — allowed outside 0–360 — so the cone animates the short
     /// way around instead of spinning back through a full turn at the wrap point.
     @State private var puckRotation: Double = 0
+    @State private var cameraDistance: Double = 0
 
     var body: some View {
         // The ZStack keeps its own frame inside the safe area while the map escapes it,
@@ -68,17 +78,26 @@ struct JourneyMapView: View {
                     )
                 }
                 if let journey {
-                    ForEach(journey.legs) { leg in
+                    ForEach(Array(journey.legs.enumerated()), id: \.element.id) { index, leg in
+                        let emphasis = emphasis(for: index, in: journey)
                         MapPolyline(coordinates: leg.path)
                             .stroke(
-                                leg.mode.tint,
+                                leg.mode.tint.opacity(emphasis.opacity),
                                 style: StrokeStyle(
-                                    lineWidth: leg.mode.isWalking ? 4 : 7,
+                                    lineWidth: (leg.mode.isWalking ? 4 : 7) + emphasis.extraWidth,
                                     lineCap: .round,
                                     lineJoin: .round,
                                     dash: leg.mode.isWalking ? [2, 8] : []
                                 )
                             )
+                    }
+                    if MapFraming.showsIntermediateStops(cameraDistance: cameraDistance) {
+                        ForEach(journey.transitLegs) { leg in
+                            ForEach(leg.stops.dropFirst().dropLast()) { stop in
+                                Annotation(stop.name, coordinate: stop.coordinate) { stopDot(leg.mode) }
+                            }
+                        }
+                        .annotationTitles(.hidden)
                     }
                     ForEach(journey.transitLegs) { leg in
                         if let start = leg.path.first {
@@ -96,6 +115,7 @@ struct JourneyMapView: View {
             recenterButton
         }
         .preferredColorScheme(.dark)
+        .sensoryFeedback(.impact(flexibility: .soft), trigger: mode)
         .onMapCameraChange(frequency: .continuous) { context in
             syncCamera(context.camera)
         }
@@ -154,9 +174,25 @@ struct JourneyMapView: View {
         }
     }
 
+    /// Behind-the-user legs stay visible as context but must not compete with what is
+    /// left to travel.
+    private func emphasis(for index: Int, in journey: Journey) -> (opacity: Double, extraWidth: CGFloat) {
+        guard let activeLegID,
+              let activeIndex = journey.legs.firstIndex(where: { $0.id == activeLegID })
+        else { return (1, 0) }
+        if index < activeIndex { return (0.35, -2) }
+        if index == activeIndex { return (1, 1) }
+        return (1, 0)
+    }
+
     private func syncCamera(_ camera: MapCamera) {
         if abs(camera.heading - cameraHeading) > 0.5 {
             cameraHeading = camera.heading
+        }
+        // 5% steps: enough to catch the stop-dot zoom threshold without re-rendering
+        // the polylines on every frame of a pinch.
+        if cameraDistance == 0 || abs(camera.distance - cameraDistance) > cameraDistance * 0.05 {
+            cameraDistance = camera.distance
         }
         // A camera moved by a gesture flips positionedByUser; programmatic writes never
         // do. This is the pan-exits-follow signal.
@@ -169,6 +205,13 @@ struct JourneyMapView: View {
         guard let heading = location.headingDegrees else { return }
         let target = HeadingGeometry.screenRotation(deviceHeading: heading, cameraHeading: cameraHeading)
         puckRotation = HeadingGeometry.continuousRotation(from: puckRotation, to: target)
+    }
+
+    private func stopDot(_ mode: TransitMode) -> some View {
+        Circle()
+            .fill(Theme.Colors.background)
+            .frame(width: 6, height: 6)
+            .overlay(Circle().stroke(mode.tint, lineWidth: 1.5))
     }
 
     private func interchangeDot(_ mode: TransitMode) -> some View {

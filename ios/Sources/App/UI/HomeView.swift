@@ -1,7 +1,10 @@
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var location: LocationProvider
+    @Environment(\.openURL) private var openURL
     @Binding var showingSettings: Bool
     // CI screenshots the expanded search with `-initialScreen search`; there is no other
     // way to look at it before a device build exists.
@@ -24,10 +27,49 @@ struct HomeView: View {
                     }
             }
 
-            topControls
+            VStack(spacing: Theme.Spacing.s) {
+                topControls
+                if locationDenied && !searchExpanded {
+                    locationDeniedBanner
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
             bottomCard
         }
+        .animation(.snappy, value: locationDenied)
+        .sensoryFeedback(.success, trigger: model.phase) { _, new in new == .ready }
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var locationDenied: Bool {
+        location.authorisation == .denied || location.authorisation == .restricted
+    }
+
+    /// The fallback origin is deliberate — a journey from the wrong place is visible and
+    /// correctable — but only if the user is told it is happening.
+    private var locationDeniedBanner: some View {
+        HStack(spacing: Theme.Spacing.s) {
+            Image(systemName: "location.slash.fill")
+                .foregroundStyle(Theme.Colors.late)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Location is off")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                Text("Journeys start from Chatswood Station")
+                    .font(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
+            Spacer(minLength: Theme.Spacing.s)
+            Button("Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(url)
+                }
+            }
+            .font(.footnote.weight(.semibold))
+        }
+        .padding(Theme.Spacing.m)
+        .glassSurface(cornerRadius: Theme.Radius.pill)
+        .padding(.horizontal, Theme.Spacing.m)
     }
 
     private var topControls: some View {
@@ -119,6 +161,11 @@ struct HomeView: View {
                             Text("Tap for live times")
                                 .font(.caption)
                                 .foregroundStyle(Theme.Colors.textSecondary)
+                            if model.plannedFromFallback {
+                                Text("From Chatswood Station — no location fix")
+                                    .font(.caption2)
+                                    .foregroundStyle(Theme.Colors.late)
+                            }
                         }
                         Spacer()
                         Image(systemName: "chevron.right").foregroundStyle(Theme.Colors.textSecondary)
