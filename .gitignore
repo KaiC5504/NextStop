@@ -2,6 +2,10 @@
 .env
 .env.*
 !.env.example
+# The Codemagic token belongs in ~/.codemagic-token, outside the repo entirely. This is
+# only a backstop in case one ever lands here by accident.
+.codemagic-token
+*token*.txt
 
 # Python
 .venv/

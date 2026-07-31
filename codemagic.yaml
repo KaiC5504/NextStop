@@ -10,6 +10,26 @@ workflows:
     name: Device build to TestFlight
     max_build_duration: 30
     instance_type: mac_mini_m2
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+      # Pushing three commits in a row should cost one build, not three. The free tier is
+      # 500 macOS minutes a month and a signed build runs about ten.
+      cancel_previous_builds: true
+    # Only the things that can change the binary. Without this every docs commit and every
+    # collector change spends ten minutes producing a byte-identical IPA.
+    #
+    # Codemagic always builds the first commit after this key appears, and only starts
+    # skipping from the one after that.
+    when:
+      changeset:
+        includes:
+          - 'ios'
+          - 'codemagic.yaml'
     integrations:
       # Must match the integration name in Codemagic exactly, character for character.
       app_store_connect: NextStop ASC key
