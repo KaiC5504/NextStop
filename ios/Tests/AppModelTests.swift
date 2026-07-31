@@ -120,4 +120,58 @@ final class AppModelTests: XCTestCase {
         model.reset()
         XCTAssertFalse(model.plannedFromFallback)
     }
+
+    func testArriveByReplansWithTheArrMacro() async {
+        let log = RequestLog()
+        let model = AppModel(
+            client: TfNSWClient(
+                session: StubFetcher(payload: Fixture.data("trip-sample"), log: log),
+                keyProvider: { "k" }
+            ),
+            store: LocalStore(fileURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent("model-\(UUID().uuidString).json"))
+        )
+        await model.plan(to: usyd)
+        XCTAssertTrue(log.last.contains("depArrMacro=dep"), log.last)
+        await model.setPlanTime(.arriveBy(Date().addingTimeInterval(3_600)))
+        XCTAssertTrue(log.last.contains("depArrMacro=arr"), log.last)
+        XCTAssertEqual(model.phase, .ready)
+    }
+
+    func testPlanTimeChosenBeforeADestinationIsStoredNotSent() async {
+        let model = model(payload: Fixture.data("trip-sample"))
+        await model.setPlanTime(.departAt(Date().addingTimeInterval(600)))
+        XCTAssertEqual(model.phase, .idle, "no destination — nothing to replan yet")
+        XCTAssertNotEqual(model.planTimeSelection, .leaveNow)
+    }
+
+    func testResetRestoresLeaveNow() async {
+        let model = model(payload: Fixture.data("trip-sample"))
+        await model.setPlanTime(.arriveBy(Date().addingTimeInterval(3_600)))
+        model.reset()
+        XCTAssertEqual(model.planTimeSelection, .leaveNow)
+    }
+
+    /// The reset path must tear down whatever the shared scheduler armed.
+    func testResetCancelsArmedAlightAlerts() async {
+        let spy = SpyNotificationCenter()
+        let scheduler = AlightAlertScheduler(center: spy)
+        let model = AppModel(
+            client: TfNSWClient(session: StubFetcher(), keyProvider: { "k" }),
+            store: LocalStore(fileURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent("model-\(UUID().uuidString).json")),
+            alightAlerts: scheduler
+        )
+        let train = Leg(
+            id: "train", mode: .train, route: "T1", headsign: nil,
+            originName: "A", destinationName: "Central",
+            plannedDeparture: Date(), estimatedDeparture: nil,
+            plannedArrival: Date().addingTimeInterval(3_600), estimatedArrival: nil,
+            hasRealtime: true, path: [], stops: [], durationSeconds: nil
+        )
+        await scheduler.begin(journey: Journey(id: "j", legs: [train]), now: Date())
+        XCTAssertEqual(spy.added.map(\.id), ["alight-train"])
+        model.reset()
+        XCTAssertEqual(spy.removed, ["alight-train"])
+    }
 }

@@ -61,14 +61,14 @@ struct TfNSWClient {
         originType: String = "any",
         destinationID: String,
         destinationType: String = "any",
-        departing: Date
+        time: PlanTime
     ) async throws -> [Journey] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Australia/Sydney")!
-        let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: departing)
+        let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: time.date)
 
         let request = try makeRequest(path: "trip", query: [
-            URLQueryItem(name: "depArrMacro", value: "dep"),
+            URLQueryItem(name: "depArrMacro", value: time.macro),
             URLQueryItem(name: "itdDate", value: String(format: "%04d%02d%02d", parts.year!, parts.month!, parts.day!)),
             URLQueryItem(name: "itdTime", value: String(format: "%02d%02d", parts.hour!, parts.minute!)),
             URLQueryItem(name: "type_origin", value: originType),
