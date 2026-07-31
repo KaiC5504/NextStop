@@ -62,7 +62,11 @@ struct RootView: View {
             // The root owns the location stream. When HomeView owned it, pushing the
             // live journey screen fired its onDisappear and froze the dot mid-journey.
             .onAppear {
-                model.location.requestWhenInUse()
+                // CI launches (-initialScreen) cannot tap a permission dialog, and a
+                // screenshot of the alert is a wasted run — simctl grants instead.
+                if requestedScreen == nil {
+                    model.location.requestWhenInUse()
+                }
                 model.location.start()
             }
             .onChange(of: scenePhase) { _, phase in
