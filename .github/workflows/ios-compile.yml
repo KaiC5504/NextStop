@@ -10,6 +10,12 @@ on:
       - ".github/workflows/ios-compile.yml"
   workflow_dispatch:
 
+# macOS runners bill private repos at 10x, so a burst of pushes must not run a full
+# build each: only the newest commit on a branch is worth compiling.
+concurrency:
+  group: ios-compile-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-latest
