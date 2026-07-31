@@ -28,10 +28,12 @@ final class AppModel: ObservableObject {
     @Published var journeys: [Journey] = []
     @Published var selectedJourneyID: String? {
         didSet {
-            // Switching routes moves the alighting stops. The planner's diff makes the
-            // refresh path's reassignment-to-same a no-op.
-            guard activityStartedAt != nil, oldValue != selectedJourneyID else { return }
-            let journey = selectedJourney
+            // Switching routes moves the alighting stops. Only a real journey re-syncs:
+            // the selection also goes nil mid-replan and on failure, and a failed replan
+            // in a tunnel must not tear down alerts that would have fired locally —
+            // reset/arrival/destination-change own the teardown.
+            guard activityStartedAt != nil, oldValue != selectedJourneyID,
+                  let journey = selectedJourney else { return }
             Task { await alightAlerts.sync(journey: journey, now: Date()) }
         }
     }
