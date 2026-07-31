@@ -88,7 +88,7 @@ jobs:
           UDID="${{ steps.sim.outputs.udid }}"
           xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/NextStop.app
           mkdir -p shots
-          for screen in home search settings; do
+          for screen in home search settings layouts; do
             xcrun simctl terminate "$UDID" com.kaichuan.nextstop 2>/dev/null || true
             sleep 3
             echo "--- launching $screen ---"

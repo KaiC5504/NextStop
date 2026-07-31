@@ -5,5 +5,6 @@ import WidgetKit
 struct NextStopWidgetBundle: WidgetBundle {
     var body: some Widget {
         SpikeLiveActivity()
+        JourneyLiveActivity()
     }
 }
