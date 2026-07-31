@@ -35,10 +35,18 @@ final class AppModel: ObservableObject {
 
     private var departAt: Date?
 
-    init(client: TfNSWClient = TfNSWClient(), store: LocalStore = .shared) {
+    /// Demo models are pre-loaded fakes for CI screenshots: no network refresh, no
+    /// ActivityKit, no permission prompts — a dialog or a failed request would sit over
+    /// every screenshot taken after it.
+    let isDemo: Bool
+
+    init(client: TfNSWClient = TfNSWClient(), store: LocalStore = .shared, isDemo: Bool = false) {
         self.client = client
         self.store = store
-        Task { await journeyActivity.sweepOrphans() }
+        self.isDemo = isDemo
+        if !isDemo {
+            Task { await journeyActivity.sweepOrphans() }
+        }
     }
 
     var selectedJourney: Journey? {
@@ -102,7 +110,7 @@ final class AppModel: ObservableObject {
     /// Re-plans against the pinned departure time, keeping the user's selected option if it
     /// is still in the result. Called on a timer while the journey screen is open.
     func refresh() async {
-        guard destination != nil else { return }
+        guard !isDemo, destination != nil else { return }
         await load(recordRecent: false)
     }
 
@@ -150,7 +158,7 @@ final class AppModel: ObservableObject {
     }
 
     func startJourneyActivity() {
-        guard destination != nil, selectedJourney != nil else { return }
+        guard !isDemo, destination != nil, selectedJourney != nil else { return }
         if activityStartedAt == nil { activityStartedAt = Date() }
         syncJourneyActivity(now: Date())
     }

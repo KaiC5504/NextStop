@@ -10,7 +10,10 @@ struct HomeView: View {
     // way to look at it before a device build exists.
     @State private var searchExpanded = UserDefaults.standard.string(forKey: "initialScreen") == "search"
     @State private var bottomContentHeight: CGFloat = 0
-    @State private var sheetDetent: SheetDetent = .medium
+    // The options screenshot starts at .large: CI cannot drag the sheet up.
+    @State private var sheetDetent: SheetDetent =
+        UserDefaults.standard.string(forKey: "initialScreen") == "options" ? .large : .medium
+    @State private var showJourney = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -40,6 +43,7 @@ struct HomeView: View {
         .animation(.snappy, value: locationDenied)
         .sensoryFeedback(.success, trigger: model.phase) { _, new in new == .ready }
         .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(isPresented: $showJourney) { LiveJourneyView() }
     }
 
     private var locationDenied: Bool {
@@ -115,7 +119,7 @@ struct HomeView: View {
                     statusContent
                 } more: {
                     if !model.journeys.isEmpty {
-                        JourneyOptionsView()
+                        JourneyOptionsList(detent: sheetDetent) { showJourney = true }
                     }
                 }
                 // Measured so the map's recenter button rides above the sheet, drag
