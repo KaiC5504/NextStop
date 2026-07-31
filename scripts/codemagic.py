@@ -38,8 +38,10 @@ def token() -> str:
             value = path.read_text(encoding="utf-8").strip()
     if not value:
         raise SystemExit(
-            "No token. Codemagic UI -> User settings -> Integrations -> Codemagic API -> Show,\n"
-            "then either:\n"
+            "No token. Codemagic UI -> Account settings -> API token -> Show.\n"
+            "It is a personal token; there is no team-level one, and it is not on the\n"
+            "Integrations page that lists GitHub and the Developer Portal.\n"
+            "Then either:\n"
             "  setx CODEMAGIC_API_TOKEN <token>      (new shells pick it up)\n"
             f"  or write it to {Path.home() / '.codemagic-token'}\n"
             "Do not put it in the repo."
