@@ -48,6 +48,13 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
+          # Granted before ANYTHING launches the app. The unit-test phase hosts the
+          # tests inside the real app with no launch arguments, so an undetermined
+          # status raises the system permission alert there — and that alert then
+          # sits over every screenshot taken later on the same simulator.
+          xcrun simctl privacy "$UDID" grant location com.kaichuan.nextstop || echo "location grant failed"
+          xcrun simctl privacy "$UDID" grant location-always com.kaichuan.nextstop || echo "location-always grant failed"
+          xcrun simctl location "$UDID" set -33.8688,151.2093 || echo "location set failed"
 
       - name: Build for simulator
         run: |
@@ -87,14 +94,6 @@ jobs:
         run: |
           UDID="${{ steps.sim.outputs.udid }}"
           xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/NextStop.app
-          # The simulator has no compass and grants nothing by default, so the user puck
-          # only appears in screenshots with a granted permission, a simulated position,
-          # and the app's -fakeHeading escape hatch. Failures are printed but not fatal:
-          # the app skips the permission prompt under -initialScreen, so a failed grant
-          # costs the puck, not the whole screenshot.
-          xcrun simctl privacy "$UDID" grant location com.kaichuan.nextstop || echo "location grant failed"
-          xcrun simctl privacy "$UDID" grant location-always com.kaichuan.nextstop || echo "location-always grant failed"
-          xcrun simctl location "$UDID" set -33.8688,151.2093 || echo "location set failed"
           mkdir -p shots
           for screen in home search settings layouts; do
             xcrun simctl terminate "$UDID" com.kaichuan.nextstop 2>/dev/null || true
