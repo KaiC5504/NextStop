@@ -56,12 +56,14 @@ final class AppModel: ObservableObject {
 
     init(
         client: TfNSWClient = TfNSWClient(), store: LocalStore = .shared, isDemo: Bool = false,
-        alightAlerts: AlightAlertScheduler = AlightAlertScheduler()
+        // nil rather than a default instance: a default argument is evaluated in the
+        // caller's context, where the scheduler's MainActor init is out of reach.
+        alightAlerts: AlightAlertScheduler? = nil
     ) {
         self.client = client
         self.store = store
         self.isDemo = isDemo
-        self.alightAlerts = alightAlerts
+        self.alightAlerts = alightAlerts ?? AlightAlertScheduler()
         if !isDemo {
             Task { await journeyActivity.sweepOrphans() }
         }
