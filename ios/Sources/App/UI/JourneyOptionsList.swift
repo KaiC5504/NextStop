@@ -11,6 +11,16 @@ struct JourneyOptionsList: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
+                HStack {
+                    Text("Routes")
+                        .font(.headline)
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                    Spacer()
+                    PlanTimeControl()
+                }
+                .padding(.horizontal, Theme.Spacing.s)
+                .padding(.bottom, Theme.Spacing.s)
+
                 ForEach(model.journeys) { journey in
                     row(journey)
                     if journey.id != model.journeys.last?.id {

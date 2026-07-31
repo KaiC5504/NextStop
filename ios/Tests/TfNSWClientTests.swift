@@ -48,7 +48,7 @@ final class TfNSWClientTests: XCTestCase {
     func testMissingKeyIsItsOwnError() async {
         let client = TfNSWClient(session: StubFetcher(), keyProvider: { nil })
         do {
-            _ = try await client.journeys(originID: "1", destinationID: "2", departing: Date())
+            _ = try await client.journeys(originID: "1", destinationID: "2", time: .depart(Date()))
             XCTFail("expected missingKey")
         } catch let error as TfNSWError {
             XCTAssertEqual(error, .missingKey)
@@ -60,7 +60,7 @@ final class TfNSWClientTests: XCTestCase {
     func testUnauthorisedIsDistinctFromOtherFailures() async {
         let client = TfNSWClient(session: StubFetcher(status: 401), keyProvider: { "bad" })
         do {
-            _ = try await client.journeys(originID: "1", destinationID: "2", departing: Date())
+            _ = try await client.journeys(originID: "1", destinationID: "2", time: .depart(Date()))
             XCTFail("expected unauthorised")
         } catch let error as TfNSWError {
             XCTAssertEqual(error, .unauthorised)
@@ -81,10 +81,26 @@ final class TfNSWClientTests: XCTestCase {
         _ = try await client.journeys(
             originID: "206710",
             destinationID: "poiID:858286183:95301006:-1:The University of Sydney",
-            departing: Date()
+            time: .depart(Date())
         )
         XCTAssertTrue(log.last.contains("type_destination=any"), log.last)
         XCTAssertTrue(log.last.contains("type_origin=any"), log.last)
+    }
+
+    /// Arrive-by rides the same endpoint with `depArrMacro=arr` and the target time in
+    /// Sydney's calendar, whatever the device timezone.
+    func testArriveBySendsTheArrMacroAndSydneyTime() async throws {
+        let log = RequestLog()
+        let client = TfNSWClient(
+            session: StubFetcher(payload: Fixture.data("trip-sample"), log: log),
+            keyProvider: { "k" }
+        )
+        // 2026-01-05 02:30 UTC == 13:30 AEDT.
+        let instant = Date(timeIntervalSince1970: 1_767_580_200)
+        _ = try await client.journeys(originID: "1", destinationID: "2", time: .arrive(instant))
+        XCTAssertTrue(log.last.contains("depArrMacro=arr"), log.last)
+        XCTAssertTrue(log.last.contains("itdDate=20260105"), log.last)
+        XCTAssertTrue(log.last.contains("itdTime=1330"), log.last)
     }
 
     func testTripRequestsAskForSixAlternatives() async throws {
@@ -93,7 +109,7 @@ final class TfNSWClientTests: XCTestCase {
             session: StubFetcher(payload: Fixture.data("trip-sample"), log: log),
             keyProvider: { "k" }
         )
-        _ = try await client.journeys(originID: "1", destinationID: "2", departing: Date())
+        _ = try await client.journeys(originID: "1", destinationID: "2", time: .depart(Date()))
         XCTAssertTrue(log.last.contains("calcNumberOfTrips=6"), log.last)
     }
 
@@ -101,7 +117,7 @@ final class TfNSWClientTests: XCTestCase {
         let client = TfNSWClient(
             session: StubFetcher(payload: Fixture.data("trip-sample")), keyProvider: { "k" }
         )
-        let journeys = try await client.journeys(originID: "1", destinationID: "2", departing: Date())
+        let journeys = try await client.journeys(originID: "1", destinationID: "2", time: .depart(Date()))
         XCTAssertFalse(journeys.isEmpty)
         XCTAssertFalse(journeys[0].legs.isEmpty)
     }

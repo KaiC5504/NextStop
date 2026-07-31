@@ -18,6 +18,7 @@ final class AppModel: ObservableObject {
     let location = LocationProvider()
     private let client: TfNSWClient
     private let journeyActivity = JourneyActivityController()
+    private let alightAlerts: AlightAlertScheduler
     /// Set the first time the live journey screen opens for the current destination —
     /// that tap is the commitment signal that starts the Live Activity. Also the fixed
     /// anchor the state deriver needs to stay stable across ticks.
@@ -25,7 +26,15 @@ final class AppModel: ObservableObject {
 
     @Published var destination: StopSuggestion?
     @Published var journeys: [Journey] = []
-    @Published var selectedJourneyID: String?
+    @Published var selectedJourneyID: String? {
+        didSet {
+            // Switching routes moves the alighting stops. The planner's diff makes the
+            // refresh path's reassignment-to-same a no-op.
+            guard activityStartedAt != nil, oldValue != selectedJourneyID else { return }
+            let journey = selectedJourney
+            Task { await alightAlerts.sync(journey: journey, now: Date()) }
+        }
+    }
     @Published var searchResults: [StopSuggestion] = []
     @Published var searchError: TfNSWError?
     @Published var phase: Phase = .idle
@@ -33,17 +42,24 @@ final class AppModel: ObservableObject {
     /// user. The fallback is deliberate; hiding it from the user would not be.
     @Published private(set) var plannedFromFallback = false
 
-    private var departAt: Date?
+    @Published private(set) var planTimeSelection: PlanTimeSelection = .leaveNow
+    /// Resolved once per plan so refreshes re-ask the same question; see
+    /// `PlanTimeSelection.resolved(now:)`.
+    private var resolvedPlanTime: PlanTime?
 
     /// Demo models are pre-loaded fakes for CI screenshots: no network refresh, no
     /// ActivityKit, no permission prompts — a dialog or a failed request would sit over
     /// every screenshot taken after it.
     let isDemo: Bool
 
-    init(client: TfNSWClient = TfNSWClient(), store: LocalStore = .shared, isDemo: Bool = false) {
+    init(
+        client: TfNSWClient = TfNSWClient(), store: LocalStore = .shared, isDemo: Bool = false,
+        alightAlerts: AlightAlertScheduler = AlightAlertScheduler()
+    ) {
         self.client = client
         self.store = store
         self.isDemo = isDemo
+        self.alightAlerts = alightAlerts
         if !isDemo {
             Task { await journeyActivity.sweepOrphans() }
         }
@@ -97,10 +113,11 @@ final class AppModel: ObservableObject {
         // update it in place instead — that path never comes through here.
         if let current = destination, current.id != stop.id {
             activityStartedAt = nil
+            alightAlerts.cancelAll()
             await journeyActivity.end()
         }
         destination = stop
-        departAt = Date()
+        resolvedPlanTime = planTimeSelection.resolved(now: Date())
         selectedJourneyID = nil
         phase = .planning
         location.set(fidelity: .navigation)
@@ -116,6 +133,7 @@ final class AppModel: ObservableObject {
 
     func reset() {
         activityStartedAt = nil
+        alightAlerts.cancelAll()
         Task { await journeyActivity.end() }
         location.set(fidelity: .ambient)
         destination = nil
@@ -123,20 +141,31 @@ final class AppModel: ObservableObject {
         selectedJourneyID = nil
         searchResults = []
         searchError = nil
-        departAt = nil
+        planTimeSelection = .leaveNow
+        resolvedPlanTime = nil
         phase = .idle
         plannedFromFallback = false
     }
 
+    /// Re-plans with a new trip time. No-op on the time control before a destination is
+    /// chosen — the selection is stored and the next plan resolves it.
+    func setPlanTime(_ selection: PlanTimeSelection) async {
+        planTimeSelection = selection
+        guard destination != nil else { return }
+        resolvedPlanTime = selection.resolved(now: Date())
+        phase = .planning
+        await load(recordRecent: false)
+    }
+
     private func load(recordRecent: Bool) async {
-        guard let destination, let departAt else { return }
+        guard let destination, let time = resolvedPlanTime else { return }
         let usedFallback = location.coordinate == nil
         do {
             let found = try await client.journeys(
                 originID: originID,
                 originType: originType,
                 destinationID: destination.id,
-                departing: departAt
+                time: time
             )
             journeys = found
             if selectedJourneyID == nil || !found.contains(where: { $0.id == selectedJourneyID }) {
@@ -145,6 +174,11 @@ final class AppModel: ObservableObject {
             if recordRecent { store.addRecent(destination) }
             plannedFromFallback = usedFallback
             phase = found.isEmpty ? .noService : .ready
+            // Only on success: a transient failure mid-tunnel must not tear down the
+            // locally scheduled alerts — firing from the last good estimate is the point.
+            if activityStartedAt != nil {
+                await alightAlerts.sync(journey: selectedJourney, now: Date())
+            }
         } catch let error as TfNSWError {
             journeys = []
             selectedJourneyID = nil
@@ -158,8 +192,13 @@ final class AppModel: ObservableObject {
     }
 
     func startJourneyActivity() {
-        guard !isDemo, destination != nil, selectedJourney != nil else { return }
-        if activityStartedAt == nil { activityStartedAt = Date() }
+        guard !isDemo, destination != nil, let journey = selectedJourney else { return }
+        if activityStartedAt == nil {
+            activityStartedAt = Date()
+            // The commitment moment doubles as the one contextual place to ask for
+            // notification permission.
+            Task { await alightAlerts.begin(journey: journey, now: Date()) }
+        }
         syncJourneyActivity(now: Date())
     }
 
@@ -177,6 +216,7 @@ final class AppModel: ObservableObject {
         else { return }
         Task {
             if state.phase == .arrived {
+                alightAlerts.cancelAll()
                 await journeyActivity.endArrived(finalState: state)
             } else {
                 await journeyActivity.sync(state: state, destinationName: destination.name, startedAt: startedAt)
