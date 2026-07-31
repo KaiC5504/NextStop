@@ -10,6 +10,7 @@ struct HomeView: View {
     // way to look at it before a device build exists.
     @State private var searchExpanded = UserDefaults.standard.string(forKey: "initialScreen") == "search"
     @State private var bottomContentHeight: CGFloat = 0
+    @State private var sheetDetent: SheetDetent = .medium
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -105,24 +106,38 @@ struct HomeView: View {
 
     @ViewBuilder
     private var bottomCard: some View {
-        VStack(spacing: Theme.Spacing.m) {
+        VStack(spacing: 0) {
             Spacer()
-            VStack(spacing: Theme.Spacing.m) {
-                if !model.journeys.isEmpty {
-                    JourneyOptionsView()
+            if hasBottomContent {
+                // Status above options: the peek detent shows the summary, dragging up
+                // reveals the alternatives beneath it.
+                BottomSheet(detent: $sheetDetent) {
+                    statusContent
+                } more: {
+                    if !model.journeys.isEmpty {
+                        JourneyOptionsView()
+                    }
                 }
-                if hasStatus {
-                    GlassCard { statusContent }
+                // Measured so the map's recenter button rides above the sheet, drag
+                // included.
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height
+                } action: { height in
+                    bottomContentHeight = height
                 }
-            }
-            // Measured so the map's recenter button rides above whatever is showing.
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.size.height
-            } action: { height in
-                bottomContentHeight = height
             }
         }
         .padding(.bottom, Theme.Spacing.s)
+        .onChange(of: hasBottomContent) { _, has in
+            if !has { bottomContentHeight = 0 }
+        }
+        .onChange(of: model.journeys.isEmpty) { _, empty in
+            if !empty { sheetDetent = .medium }
+        }
+    }
+
+    private var hasBottomContent: Bool {
+        hasStatus || !model.journeys.isEmpty
     }
 
     private var hasStatus: Bool {

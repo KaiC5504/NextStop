@@ -97,7 +97,7 @@ jobs:
             xcrun simctl terminate "$UDID" com.kaichuan.nextstop 2>/dev/null || true
             sleep 3
             echo "--- launching $screen ---"
-            xcrun simctl launch "$UDID" com.kaichuan.nextstop -initialScreen "$screen" -fakeHeading 45
+            xcrun simctl launch "$UDID" com.kaichuan.nextstop -initialScreen "$screen" -fakeHeading 45 -legacyGlass YES
             # A blank first screenshot suggested the launch screen was still up, so give
             # SwiftUI real time rather than guessing again.
             sleep 15

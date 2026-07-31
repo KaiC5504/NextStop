@@ -1,32 +1,25 @@
 import SwiftUI
 
+/// Read once — it is a launch argument, not something that changes mid-run.
+private let legacyGlass = UserDefaults.standard.bool(forKey: "legacyGlass")
+
 extension View {
-    /// Material rather than iOS 26's `glassEffect`: the CI simulator has rendered glass
-    /// inconsistently, and the screenshots are the only way to see this UI before a device
-    /// build exists. Revisit once there is a phone to compare against.
+    /// iOS 26 Liquid Glass by default — the look this app always wanted. CI launches
+    /// with `-legacyGlass YES` because the simulator renders glassEffect inconsistently
+    /// and screenshots are the only pre-device check; TestFlight builds get the real
+    /// thing. The manual stroke and shadow only exist on the legacy path — glass brings
+    /// its own edge treatment.
+    @ViewBuilder
     func glassSurface(cornerRadius: CGFloat = Theme.Radius.card) -> some View {
-        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Theme.Colors.stroke, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.35), radius: 24, y: 8)
-    }
-}
-
-struct GlassCard<Content: View>: View {
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(spacing: Theme.Spacing.m) {
-            Capsule()
-                .fill(Theme.Colors.stroke)
-                .frame(width: 36, height: 5)
-            content
+        if legacyGlass {
+            background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(Theme.Colors.stroke, lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.35), radius: 24, y: 8)
+        } else {
+            glassEffect(.regular, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
-        .padding(Theme.Spacing.m)
-        .frame(maxWidth: .infinity)
-        .glassSurface()
-        .padding(.horizontal, Theme.Spacing.s)
     }
 }
