@@ -40,6 +40,9 @@ struct HomeView: View {
             SearchField(isExpanded: $searchExpanded)
 
             if !searchExpanded {
+                // Without this the row sizes to its content and the ZStack centres it,
+                // leaving both controls floating in the middle of the map.
+                Spacer(minLength: Theme.Spacing.s)
                 if model.destination != nil {
                     circleButton("xmark") {
                         withAnimation(.snappy) { model.reset() }
@@ -48,6 +51,7 @@ struct HomeView: View {
                 circleButton("gearshape") { showingSettings = true }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Theme.Spacing.m)
         .padding(.top, Theme.Spacing.s)
     }
