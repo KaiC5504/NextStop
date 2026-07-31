@@ -24,6 +24,7 @@ struct JourneyOptionsView: View {
             .padding(.horizontal, Theme.Spacing.m)
         }
         .scrollClipDisabled()
+        .sensoryFeedback(.selection, trigger: model.selectedJourneyID)
     }
 
     private func card(_ journey: Journey) -> some View {

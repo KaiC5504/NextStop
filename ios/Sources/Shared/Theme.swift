@@ -8,6 +8,10 @@ enum Theme {
         static let textPrimary = Color.white
         static let textSecondary = Color.white.opacity(0.6)
 
+        /// The "you are here" blue. Not a TfNSW colour on purpose — it must never be
+        /// mistaken for a mode.
+        static let userPuck = Color(hex: 0x4285F4)
+
         static let onTime = Color(hex: 0x55A868)
         static let late = Color(hex: 0xDD8452)
         static let veryLate = Color(hex: 0xC44E52)

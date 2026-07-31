@@ -43,8 +43,8 @@ These are the acceptance criteria. Track them explicitly.
 | #   | Requirement                                                                                 | Status      |
 | --- | ------------------------------------------------------------------------------------------- | ----------- |
 | R1  | Routing and departure times match Opal Travel, not Google's approximations                  | **Answered, mode-dependent** — see `docs/findings/`. 22,517 departures over 3 days: Metro 0% late >2 min, Train 8%, Bus 28%, Light Rail 63%. Realtime is decisive for surface transport and near-worthless for Metro |
-| R2  | A real map showing my route and current position, comparable to Google Maps                 | Not started |
-| R3  | Live Activity on the Lock Screen **and** Dynamic Island for an active journey               | Signed build on TestFlight (2026-07-31); all 5 presentations render in the simulator. **Still unproven on device** — the tunnel question needs a real commute |
+| R2  | A real map showing my route and current position, comparable to Google Maps                 | **Built** (v1 + map-parity round, 2026-07-31): route polylines, compass cone with accuracy aperture, two-stage recenter/follow, stop dots under 25 km, active-leg emphasis. Awaiting device verification — the simulator has no compass |
+| R3  | Live Activity on the Lock Screen **and** Dynamic Island for an active journey               | **Wired to real journeys** (2026-07-31): starts from the live journey screen, foreground-driven updates with honest staleness at 3 min. Background updates still gated on the Stage C spike ride; all layouts render in the harness, **unproven on device** |
 | R4  | "Get off at the next stop" alert that fires reliably with the phone locked and in my pocket | Design revised to two mechanisms — see §5.2. Depends on the R3 spike result |
 | R5  | Correct handling of delays, disruptions, trackwork and replacement services                 | GTFS-R quirk filters written and unit-tested against synthetic feeds |
 

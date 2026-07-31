@@ -20,8 +20,10 @@ struct NextStopApp: App {
 
 struct RootView: View {
     @Environment(SpikeSession.self) private var session
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model = AppModel()
     @State private var showingSettings: Bool
+    private let requestedScreen: String?
 
     init() {
         // CI launches with `-initialScreen <name>` to screenshot a screen it cannot
@@ -30,24 +32,50 @@ struct RootView: View {
         // simulator never has a key, so `-initialScreen home` would otherwise photograph
         // Settings sitting on top of the screen it was asked for.
         let requested = UserDefaults.standard.string(forKey: "initialScreen")
+        requestedScreen = requested
         let firstRun = requested == nil && KeychainStore.read() == nil
         _showingSettings = State(initialValue: requested == "settings" || firstRun)
     }
 
     var body: some View {
-        NavigationStack {
-            HomeView(showingSettings: $showingSettings)
-                .background(Theme.Colors.background)
-        }
-        .environmentObject(model)
-        .environmentObject(model.store)
-        .preferredColorScheme(.dark)
-        .tint(Theme.Colors.textPrimary)
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
-                .environmentObject(model)
-                .environmentObject(model.store)
-                .environment(session)
+        if requestedScreen == "layouts" {
+            // Straight to the Live Activity harness: CI cannot navigate Settings →
+            // Developer, and this screen is the only pre-device look at the layouts.
+            ActivityHarnessView()
+                .preferredColorScheme(.dark)
+        } else {
+            NavigationStack {
+                HomeView(showingSettings: $showingSettings)
+                    .background(Theme.Colors.background)
+            }
+            .environmentObject(model)
+            .environmentObject(model.store)
+            .environmentObject(model.location)
+            .preferredColorScheme(.dark)
+            .tint(Theme.Colors.textPrimary)
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+                    .environmentObject(model)
+                    .environmentObject(model.store)
+                    .environment(session)
+            }
+            // The root owns the location stream. When HomeView owned it, pushing the
+            // live journey screen fired its onDisappear and froze the dot mid-journey.
+            .onAppear {
+                // CI launches (-initialScreen) cannot tap a permission dialog, and a
+                // screenshot of the alert is a wasted run — simctl grants instead.
+                if requestedScreen == nil {
+                    model.location.requestWhenInUse()
+                }
+                model.location.start()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                switch phase {
+                case .active: model.location.start()
+                case .background: model.location.stop()
+                default: break
+                }
+            }
         }
     }
 }

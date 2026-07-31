@@ -109,4 +109,15 @@ final class AppModelTests: XCTestCase {
         XCTAssertNil(model.destination)
         XCTAssertEqual(model.phase, .idle)
     }
+
+    /// There is never a fix in the test environment, so every plan uses the Chatswood
+    /// fallback — and the model must say so rather than pretend it knows where you are.
+    func testPlanningWithoutAFixFlagsTheFallback() async {
+        let model = model(payload: Fixture.data("trip-sample"))
+        XCTAssertFalse(model.plannedFromFallback)
+        await model.plan(to: usyd)
+        XCTAssertTrue(model.plannedFromFallback)
+        model.reset()
+        XCTAssertFalse(model.plannedFromFallback)
+    }
 }

@@ -48,6 +48,12 @@ struct Journey: Identifiable {
         return arrival.timeIntervalSince(departure)
     }
 
+    /// The leg being travelled — or waited for — at `date`: the first one not yet
+    /// finished. Nil once the journey is over.
+    func activeLeg(at date: Date) -> Leg? {
+        legs.first { ($0.arrival ?? .distantFuture) > date }
+    }
+
     static func list(from dto: TripDTO) -> [Journey] {
         (dto.journeys ?? []).compactMap { journey in
             let legs = (journey.legs ?? []).map(Leg.init(dto:))

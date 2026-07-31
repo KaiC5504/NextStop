@@ -3,7 +3,11 @@ import SwiftUI
 /// TfNSW product classes, per the Trip Planner v3.3 manual and confirmed against live
 /// responses. Colours are the published TfNSW mode colours — using anything else costs the
 /// instant recognition that makes a transit map readable at a glance.
-enum TransitMode: Equatable {
+///
+/// String raw values exist so the Live Activity payload can encode a mode. The case names
+/// are separately load-bearing: `Leg.id` interpolates them, so renaming one orphans every
+/// saved leg rating. Both contracts are pinned by tests.
+enum TransitMode: String, Codable, Equatable {
     case train, metro, lightRail, bus, coach, ferry, schoolBus, walk, cycle, unknown
 
     init(productClass: Int?) {

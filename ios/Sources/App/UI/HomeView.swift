@@ -1,16 +1,20 @@
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var location: LocationProvider
+    @Environment(\.openURL) private var openURL
     @Binding var showingSettings: Bool
     // CI screenshots the expanded search with `-initialScreen search`; there is no other
     // way to look at it before a device build exists.
     @State private var searchExpanded = UserDefaults.standard.string(forKey: "initialScreen") == "search"
+    @State private var bottomContentHeight: CGFloat = 0
+    @State private var sheetDetent: SheetDetent = .medium
 
     var body: some View {
         ZStack(alignment: .top) {
-            JourneyMapView(journey: model.selectedJourney)
-                .ignoresSafeArea()
+            JourneyMapView(journey: model.selectedJourney, bottomInset: bottomContentHeight)
 
             // Tapping the map closes the search rather than leaving it hanging open over
             // the route the user is trying to look at.
@@ -24,15 +28,49 @@ struct HomeView: View {
                     }
             }
 
-            topControls
+            VStack(spacing: Theme.Spacing.s) {
+                topControls
+                if locationDenied && !searchExpanded {
+                    locationDeniedBanner
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
             bottomCard
         }
+        .animation(.snappy, value: locationDenied)
+        .sensoryFeedback(.success, trigger: model.phase) { _, new in new == .ready }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear {
-            model.location.requestWhenInUse()
-            model.location.start()
+    }
+
+    private var locationDenied: Bool {
+        location.authorisation == .denied || location.authorisation == .restricted
+    }
+
+    /// The fallback origin is deliberate — a journey from the wrong place is visible and
+    /// correctable — but only if the user is told it is happening.
+    private var locationDeniedBanner: some View {
+        HStack(spacing: Theme.Spacing.s) {
+            Image(systemName: "location.slash.fill")
+                .foregroundStyle(Theme.Colors.late)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Location is off")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                Text("Journeys start from Chatswood Station")
+                    .font(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
+            Spacer(minLength: Theme.Spacing.s)
+            Button("Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(url)
+                }
+            }
+            .font(.footnote.weight(.semibold))
         }
-        .onDisappear { model.location.stop() }
+        .padding(Theme.Spacing.m)
+        .glassSurface(cornerRadius: Theme.Radius.pill)
+        .padding(.horizontal, Theme.Spacing.m)
     }
 
     private var topControls: some View {
@@ -68,16 +106,38 @@ struct HomeView: View {
 
     @ViewBuilder
     private var bottomCard: some View {
-        VStack(spacing: Theme.Spacing.m) {
+        VStack(spacing: 0) {
             Spacer()
-            if !model.journeys.isEmpty {
-                JourneyOptionsView()
-            }
-            if hasStatus {
-                GlassCard { statusContent }
+            if hasBottomContent {
+                // Status above options: the peek detent shows the summary, dragging up
+                // reveals the alternatives beneath it.
+                BottomSheet(detent: $sheetDetent) {
+                    statusContent
+                } more: {
+                    if !model.journeys.isEmpty {
+                        JourneyOptionsView()
+                    }
+                }
+                // Measured so the map's recenter button rides above the sheet, drag
+                // included.
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height
+                } action: { height in
+                    bottomContentHeight = height
+                }
             }
         }
         .padding(.bottom, Theme.Spacing.s)
+        .onChange(of: hasBottomContent) { _, has in
+            if !has { bottomContentHeight = 0 }
+        }
+        .onChange(of: model.journeys.isEmpty) { _, empty in
+            if !empty { sheetDetent = .medium }
+        }
+    }
+
+    private var hasBottomContent: Bool {
+        hasStatus || !model.journeys.isEmpty
     }
 
     private var hasStatus: Bool {
@@ -116,6 +176,11 @@ struct HomeView: View {
                             Text("Tap for live times")
                                 .font(.caption)
                                 .foregroundStyle(Theme.Colors.textSecondary)
+                            if model.plannedFromFallback {
+                                Text("From Chatswood Station — no location fix")
+                                    .font(.caption2)
+                                    .foregroundStyle(Theme.Colors.late)
+                            }
                         }
                         Spacer()
                         Image(systemName: "chevron.right").foregroundStyle(Theme.Colors.textSecondary)
