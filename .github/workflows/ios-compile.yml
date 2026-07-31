@@ -87,12 +87,17 @@ jobs:
         run: |
           UDID="${{ steps.sim.outputs.udid }}"
           xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/NextStop.app
+          # The simulator has no compass and grants nothing by default, so the user puck
+          # only appears in screenshots with a granted permission, a simulated position,
+          # and the app's -fakeHeading escape hatch.
+          xcrun simctl privacy "$UDID" grant location com.kaichuan.nextstop || true
+          xcrun simctl location "$UDID" set -33.8688,151.2093 || true
           mkdir -p shots
           for screen in home search settings layouts; do
             xcrun simctl terminate "$UDID" com.kaichuan.nextstop 2>/dev/null || true
             sleep 3
             echo "--- launching $screen ---"
-            xcrun simctl launch "$UDID" com.kaichuan.nextstop -initialScreen "$screen"
+            xcrun simctl launch "$UDID" com.kaichuan.nextstop -initialScreen "$screen" -fakeHeading 45
             # A blank first screenshot suggested the launch screen was still up, so give
             # SwiftUI real time rather than guessing again.
             sleep 15

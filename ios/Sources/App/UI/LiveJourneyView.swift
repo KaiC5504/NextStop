@@ -14,8 +14,7 @@ struct LiveJourneyView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            JourneyMapView(journey: model.selectedJourney)
-                .ignoresSafeArea()
+            JourneyMapView(journey: model.selectedJourney, bottomInset: 460 + Theme.Spacing.s)
 
             if let journey = model.selectedJourney {
                 ScrollView {

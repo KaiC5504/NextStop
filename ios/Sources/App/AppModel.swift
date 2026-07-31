@@ -92,6 +92,7 @@ final class AppModel: ObservableObject {
         departAt = Date()
         selectedJourneyID = nil
         phase = .planning
+        location.set(fidelity: .navigation)
         await load(recordRecent: true)
     }
 
@@ -105,6 +106,7 @@ final class AppModel: ObservableObject {
     func reset() {
         activityStartedAt = nil
         Task { await journeyActivity.end() }
+        location.set(fidelity: .ambient)
         destination = nil
         journeys = []
         selectedJourneyID = nil

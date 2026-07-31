@@ -6,11 +6,11 @@ struct HomeView: View {
     // CI screenshots the expanded search with `-initialScreen search`; there is no other
     // way to look at it before a device build exists.
     @State private var searchExpanded = UserDefaults.standard.string(forKey: "initialScreen") == "search"
+    @State private var bottomContentHeight: CGFloat = 0
 
     var body: some View {
         ZStack(alignment: .top) {
-            JourneyMapView(journey: model.selectedJourney)
-                .ignoresSafeArea()
+            JourneyMapView(journey: model.selectedJourney, bottomInset: bottomContentHeight)
 
             // Tapping the map closes the search rather than leaving it hanging open over
             // the route the user is trying to look at.
@@ -28,11 +28,6 @@ struct HomeView: View {
             bottomCard
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear {
-            model.location.requestWhenInUse()
-            model.location.start()
-        }
-        .onDisappear { model.location.stop() }
     }
 
     private var topControls: some View {
@@ -70,11 +65,19 @@ struct HomeView: View {
     private var bottomCard: some View {
         VStack(spacing: Theme.Spacing.m) {
             Spacer()
-            if !model.journeys.isEmpty {
-                JourneyOptionsView()
+            VStack(spacing: Theme.Spacing.m) {
+                if !model.journeys.isEmpty {
+                    JourneyOptionsView()
+                }
+                if hasStatus {
+                    GlassCard { statusContent }
+                }
             }
-            if hasStatus {
-                GlassCard { statusContent }
+            // Measured so the map's recenter button rides above whatever is showing.
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height
+            } action: { height in
+                bottomContentHeight = height
             }
         }
         .padding(.bottom, Theme.Spacing.s)

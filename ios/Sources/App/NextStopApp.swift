@@ -20,6 +20,7 @@ struct NextStopApp: App {
 
 struct RootView: View {
     @Environment(SpikeSession.self) private var session
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model = AppModel()
     @State private var showingSettings: Bool
     private let requestedScreen: String?
@@ -49,6 +50,7 @@ struct RootView: View {
             }
             .environmentObject(model)
             .environmentObject(model.store)
+            .environmentObject(model.location)
             .preferredColorScheme(.dark)
             .tint(Theme.Colors.textPrimary)
             .sheet(isPresented: $showingSettings) {
@@ -56,6 +58,19 @@ struct RootView: View {
                     .environmentObject(model)
                     .environmentObject(model.store)
                     .environment(session)
+            }
+            // The root owns the location stream. When HomeView owned it, pushing the
+            // live journey screen fired its onDisappear and froze the dot mid-journey.
+            .onAppear {
+                model.location.requestWhenInUse()
+                model.location.start()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                switch phase {
+                case .active: model.location.start()
+                case .background: model.location.stop()
+                default: break
+                }
             }
         }
     }
