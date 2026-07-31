@@ -48,4 +48,12 @@ final class DepartureStatusTests: XCTestCase {
         XCTAssertEqual(status, .early(3))
         XCTAssertEqual(status.label, "3 min early")
     }
+
+    /// The status travels inside the Live Activity payload, so it has to survive a
+    /// round trip — including the associated minutes.
+    func testCodableRoundTrip() throws {
+        let statuses: [DepartureStatus] = [.onTime, .late(6), .early(2), .scheduledOnly]
+        let data = try JSONEncoder().encode(statuses)
+        XCTAssertEqual(try JSONDecoder().decode([DepartureStatus].self, from: data), statuses)
+    }
 }

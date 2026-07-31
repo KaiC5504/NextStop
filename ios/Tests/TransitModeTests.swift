@@ -25,4 +25,29 @@ final class TransitModeTests: XCTestCase {
         XCTAssertEqual(TransitMode(productClass: 42), .unknown)
         XCTAssertFalse(TransitMode(productClass: nil).isWalking)
     }
+
+    /// `Leg.id` builds on `"\(mode)"`, which prints the case name — not the raw value.
+    /// If either ever diverges, every saved leg rating silently stops matching its leg,
+    /// so both spellings are pinned here.
+    func testInterpolationAndRawValueStayTheCaseName() {
+        let expected: [(TransitMode, String)] = [
+            (.train, "train"), (.metro, "metro"), (.lightRail, "lightRail"),
+            (.bus, "bus"), (.coach, "coach"), (.ferry, "ferry"),
+            (.schoolBus, "schoolBus"), (.walk, "walk"), (.cycle, "cycle"),
+            (.unknown, "unknown"),
+        ]
+        for (mode, name) in expected {
+            XCTAssertEqual("\(mode)", name)
+            XCTAssertEqual(mode.rawValue, name)
+        }
+    }
+
+    func testCodableRoundTrip() throws {
+        let modes: [TransitMode] = [
+            .train, .metro, .lightRail, .bus, .coach, .ferry,
+            .schoolBus, .walk, .cycle, .unknown,
+        ]
+        let data = try JSONEncoder().encode(modes)
+        XCTAssertEqual(try JSONDecoder().decode([TransitMode].self, from: data), modes)
+    }
 }
