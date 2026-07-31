@@ -42,6 +42,14 @@ final class LocationProvider: NSObject, ObservableObject {
     func requestWhenInUse() { manager.requestWhenInUseAuthorization() }
 
     func start() {
+        // iOS 26 implicitly raises the permission prompt when updates start while the
+        // status is undetermined — not just on requestWhenInUse. CI launches can never
+        // tap that dialog (it photobombed every screenshot), so under -initialScreen
+        // the stream only starts once simctl's grant has taken effect.
+        if authorisation == .notDetermined,
+           UserDefaults.standard.string(forKey: "initialScreen") != nil {
+            return
+        }
         manager.startUpdatingLocation()
         if CLLocationManager.headingAvailable() {
             manager.startUpdatingHeading()
