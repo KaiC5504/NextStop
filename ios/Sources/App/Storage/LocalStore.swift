@@ -24,6 +24,10 @@ final class LocalStore: ObservableObject {
     @Published private(set) var recents: [StopSuggestion] = []
     @Published private(set) var saved: [StopSuggestion] = []
     @Published private(set) var feedback: [PredictionFeedback] = []
+    /// Derived rather than held in the journey screen's `@State`: navigating back to the map
+    /// and returning rebuilds that view, which would offer the buttons again on legs already
+    /// rated and let the same leg be filed twice.
+    @Published private(set) var ratedLegIDs: Set<String> = []
 
     init(fileURL: URL) {
         self.fileURL = fileURL
@@ -69,6 +73,7 @@ final class LocalStore: ObservableObject {
         recents = contents.recents
         saved = contents.saved
         feedback = contents.feedback
+        ratedLegIDs = Set(contents.feedback.compactMap(\.legID))
     }
 
     private func persist() {

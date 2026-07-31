@@ -74,6 +74,38 @@ final class LocalStoreTests: XCTestCase {
         XCTAssertTrue(feedback.hadRealtime)
     }
 
+    /// The journey screen asks the store which legs are already rated. Holding that in the
+    /// view's own state let a leg be rated twice by navigating back to the map and returning.
+    func testRatedLegIDsSurviveAReload() {
+        let leg = Leg(
+            id: "metro|M1|Chatswood Station|1000000", mode: .metro, route: "M1", headsign: "Sydenham",
+            originName: "Chatswood Station", destinationName: "Central",
+            plannedDeparture: Date(timeIntervalSince1970: 1_000_000), estimatedDeparture: nil,
+            plannedArrival: nil, estimatedArrival: nil,
+            hasRealtime: true, path: [], stops: [], durationSeconds: 900
+        )
+        let store = LocalStore(fileURL: url)
+        XCTAssertFalse(store.ratedLegIDs.contains(leg.id))
+        store.record(PredictionFeedback(leg: leg, wasCorrect: true, tappedAt: Date()))
+        XCTAssertTrue(store.ratedLegIDs.contains(leg.id))
+
+        XCTAssertTrue(LocalStore(fileURL: url).ratedLegIDs.contains(leg.id))
+    }
+
+    /// Records written before `legID` existed must still decode. If they threw, the whole
+    /// store would reset and take the user's saved places with it.
+    func testFeedbackWithoutALegIDStillDecodes() throws {
+        let legacy = """
+        [{"id":"\(UUID().uuidString)","recordedAt":"2026-07-28T09:03:00Z","wasCorrect":true,
+          "mode":"Bus","originName":"A","destinationName":"B","hadRealtime":true}]
+        """
+        let decoded = try JSONDecoder.tfnswDecoder.decode(
+            [PredictionFeedback].self, from: Data(legacy.utf8)
+        )
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertNil(decoded[0].legID)
+    }
+
     func testExportIsDecodableJSON() throws {
         let store = LocalStore(fileURL: url)
         store.record(PredictionFeedback(

@@ -112,7 +112,8 @@ def report(build: dict) -> None:
     print("\nsteps")
     for action in actions:
         name = action.get("name", "?")
-        state = action.get("status", "?")
+        # A step that has not started yet sends a null status, which prints as "None".
+        state = action.get("status") or "pending"
         marker = "x" if state == "failed" else ("-" if state in {"skipped", "pending"} else "+")
         print(f"  {marker} {name}: {state}")
 

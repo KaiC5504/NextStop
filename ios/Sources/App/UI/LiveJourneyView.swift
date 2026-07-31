@@ -5,7 +5,6 @@ struct LiveJourneyView: View {
     @EnvironmentObject private var store: LocalStore
 
     @State private var now = Date()
-    @State private var recorded: Set<String> = []
     @State private var lastRefresh = Date()
 
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -27,7 +26,7 @@ struct LiveJourneyView: View {
                                 leg: leg,
                                 isNext: index == nextLegIndex(journey),
                                 now: now,
-                                onFeedback: recorded.contains(leg.id) ? nil : { record(leg, $0) }
+                                onFeedback: store.ratedLegIDs.contains(leg.id) ? nil : { record(leg, $0) }
                             )
                         }
                     }
@@ -72,7 +71,8 @@ struct LiveJourneyView: View {
     }
 
     private func record(_ leg: Leg, _ wasCorrect: Bool) {
-        store.record(PredictionFeedback(leg: leg, wasCorrect: wasCorrect, tappedAt: Date()))
-        withAnimation(.snappy) { _ = recorded.insert(leg.id) }
+        withAnimation(.snappy) {
+            store.record(PredictionFeedback(leg: leg, wasCorrect: wasCorrect, tappedAt: Date()))
+        }
     }
 }

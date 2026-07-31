@@ -2,6 +2,9 @@ import Foundation
 
 struct PredictionFeedback: Codable, Identifiable {
     let id: UUID
+    /// Optional so records written before this field existed still decode. A decode failure
+    /// here empties the whole store, which would cost the user their saved places too.
+    var legID: String? = nil
     let recordedAt: Date
     let wasCorrect: Bool
     let mode: String
@@ -19,6 +22,7 @@ extension PredictionFeedback {
     init(leg: Leg, wasCorrect: Bool, tappedAt: Date) {
         self.init(
             id: UUID(),
+            legID: leg.id,
             recordedAt: tappedAt,
             wasCorrect: wasCorrect,
             mode: leg.mode.displayName,
