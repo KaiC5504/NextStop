@@ -4,6 +4,10 @@ import Foundation
 final class AppModel: ObservableObject {
     enum Phase: Equatable {
         case idle, planning, ready
+        /// The request succeeded and returned nothing. Distinct from `.ready` because an
+        /// empty journey list renders identically to the idle screen — which is exactly how
+        /// a POI destination silently did nothing at all.
+        case noService
         case failed(TfNSWError)
     }
 
@@ -64,6 +68,13 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Clears the search without touching `phase`, so dismissing the field cannot wipe the
+    /// banner explaining why the last plan failed.
+    func clearSearch() {
+        searchResults = []
+        searchError = nil
+    }
+
     func plan(to stop: StopSuggestion) async {
         destination = stop
         departAt = Date()
@@ -103,7 +114,7 @@ final class AppModel: ObservableObject {
                 selectedJourneyID = found.first?.id
             }
             if recordRecent { store.addRecent(destination) }
-            phase = .ready
+            phase = found.isEmpty ? .noService : .ready
         } catch let error as TfNSWError {
             journeys = []
             selectedJourneyID = nil

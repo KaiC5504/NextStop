@@ -40,6 +40,39 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.store.recents.count, 1)
     }
 
+    /// A successful request that returns nothing must not look like the idle screen. This
+    /// is the state that hid a POI destination resolving to no journeys at all.
+    func testAnEmptyResultIsItsOwnPhaseRatherThanReady() async {
+        let model = model(payload: Data(#"{"journeys":[]}"#.utf8))
+        await model.plan(to: usyd)
+        XCTAssertEqual(model.phase, .noService)
+        XCTAssertTrue(model.journeys.isEmpty)
+    }
+
+    func testPlanningSendsTheDestinationAsAnyType() async {
+        let log = RequestLog()
+        let model = AppModel(
+            client: TfNSWClient(
+                session: StubFetcher(payload: Fixture.data("trip-sample"), log: log),
+                keyProvider: { "k" }
+            ),
+            store: LocalStore(fileURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent("model-\(UUID().uuidString).json"))
+        )
+        await model.plan(to: StopSuggestion(id: "poiID:858286183:1:USyd", name: "USyd", isBest: true))
+        XCTAssertTrue(log.last.contains("type_destination=any"), log.last)
+    }
+
+    /// Dismissing the search field must not wipe the banner telling the user their key was
+    /// rejected — the field sits directly above that banner.
+    func testClearingSearchLeavesAPlanFailureVisible() async {
+        let model = model(status: 401)
+        await model.plan(to: usyd)
+        model.clearSearch()
+        XCTAssertEqual(model.phase, .failed(.unauthorised))
+        XCTAssertTrue(model.searchResults.isEmpty)
+    }
+
     func testAnUnauthorisedPlanSurfacesTheError() async {
         let model = model(status: 401)
         await model.plan(to: usyd)

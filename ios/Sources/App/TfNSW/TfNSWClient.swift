@@ -52,11 +52,15 @@ struct TfNSWClient {
         return request
     }
 
+    /// The types default to "any", not "stop". `findStops` searches with `type_sf=any` and
+    /// returns POIs, suburbs and addresses alongside stops — sending one of those ids as a
+    /// "stop" resolves to nothing and the API returns zero journeys rather than an error.
+    /// "any" resolves every id kind, stops included.
     func journeys(
         originID: String,
-        originType: String = "stop",
+        originType: String = "any",
         destinationID: String,
-        destinationType: String = "stop",
+        destinationType: String = "any",
         departing: Date
     ) async throws -> [Journey] {
         var calendar = Calendar(identifier: .gregorian)

@@ -3,78 +3,31 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
     @Binding var showingSettings: Bool
-    @State private var showingSearch = false
+    // CI screenshots the expanded search with `-initialScreen search`; there is no other
+    // way to look at it before a device build exists.
+    @State private var searchExpanded = UserDefaults.standard.string(forKey: "initialScreen") == "search"
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .top) {
             JourneyMapView(journey: model.selectedJourney)
                 .ignoresSafeArea()
 
-            VStack(spacing: Theme.Spacing.m) {
-                if !model.journeys.isEmpty {
-                    JourneyOptionsView()
-                }
-                GlassCard {
-                    if let destination = model.destination, model.selectedJourney != nil {
-                        NavigationLink {
-                            LiveJourneyView()
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text("To \(destination.name)")
-                                        .font(.headline)
-                                        .foregroundStyle(Theme.Colors.textPrimary)
-                                    Text("Tap for live times")
-                                        .font(.caption)
-                                        .foregroundStyle(Theme.Colors.textSecondary)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right").foregroundStyle(Theme.Colors.textSecondary)
-                            }
-                        }
-                    } else {
-                        Button { showingSearch = true } label: {
-                            HStack {
-                                Image(systemName: "magnifyingglass")
-                                Text("Where to?")
-                                Spacer()
-                            }
-                            .font(.headline)
-                            .foregroundStyle(Theme.Colors.textSecondary)
-                            .padding(.vertical, Theme.Spacing.s)
+            // Tapping the map closes the search rather than leaving it hanging open over
+            // the route the user is trying to look at.
+            if searchExpanded {
+                Color.black.opacity(0.001)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                            searchExpanded = false
                         }
                     }
+            }
 
-                    if case .planning = model.phase {
-                        ProgressView().tint(Theme.Colors.textSecondary)
-                    }
-                    if case .failed(let error) = model.phase {
-                        errorRow(error)
-                    }
-                }
-            }
-            .padding(.bottom, Theme.Spacing.s)
+            topControls
+            bottomCard
         }
-        // Without an inline title the map sits under an empty large-title bar, which reads
-        // as an unfinished screen in the CI screenshot.
-        .navigationTitle("NextStop")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showingSettings = true } label: { Image(systemName: "gearshape") }
-            }
-            ToolbarItem(placement: .topBarLeading) {
-                if model.destination != nil {
-                    Button("Clear") { withAnimation(.snappy) { model.reset() } }
-                }
-            }
-        }
-        .sheet(isPresented: $showingSearch) {
-            SearchSheet()
-                .environmentObject(model)
-                .environmentObject(model.store)
-        }
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             model.location.requestWhenInUse()
             model.location.start()
@@ -82,9 +35,108 @@ struct HomeView: View {
         .onDisappear { model.location.stop() }
     }
 
+    private var topControls: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.s) {
+            SearchField(isExpanded: $searchExpanded)
+
+            if !searchExpanded {
+                if model.destination != nil {
+                    circleButton("xmark") {
+                        withAnimation(.snappy) { model.reset() }
+                    }
+                }
+                circleButton("gearshape") { showingSettings = true }
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.m)
+        .padding(.top, Theme.Spacing.s)
+    }
+
+    private func circleButton(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Theme.Colors.textSecondary)
+                .frame(width: 44, height: 44)
+                .glassSurface(cornerRadius: 22)
+        }
+    }
+
+    @ViewBuilder
+    private var bottomCard: some View {
+        VStack(spacing: Theme.Spacing.m) {
+            Spacer()
+            if !model.journeys.isEmpty {
+                JourneyOptionsView()
+            }
+            if hasStatus {
+                GlassCard { statusContent }
+            }
+        }
+        .padding(.bottom, Theme.Spacing.s)
+    }
+
+    private var hasStatus: Bool {
+        switch model.phase {
+        case .idle: false
+        case .ready: model.destination != nil && model.selectedJourney != nil
+        default: true
+        }
+    }
+
+    /// Nothing at all when idle: the map is the screen, and an empty card telling the user
+    /// there is nothing to say only takes space away from it.
+    @ViewBuilder
+    private var statusContent: some View {
+        switch model.phase {
+        case .idle:
+            EmptyView()
+        case .planning:
+            HStack(spacing: Theme.Spacing.s) {
+                ProgressView().tint(Theme.Colors.textSecondary)
+                Text("Finding a way there…")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
+        case .ready:
+            if let destination = model.destination, model.selectedJourney != nil {
+                NavigationLink {
+                    LiveJourneyView()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("To \(destination.name)")
+                                .font(.headline)
+                                .foregroundStyle(Theme.Colors.textPrimary)
+                                .lineLimit(1)
+                            Text("Tap for live times")
+                                .font(.caption)
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(Theme.Colors.textSecondary)
+                    }
+                }
+            }
+        case .noService:
+            message("No services to \(model.destination?.name ?? "there") right now", tint: Theme.Colors.noRealtime)
+        case .failed(let error):
+            errorRow(error)
+        }
+    }
+
+    private func message(_ text: String, tint: Color) -> some View {
+        HStack(spacing: Theme.Spacing.s) {
+            Image(systemName: "exclamationmark.circle")
+            Text(text).font(.footnote)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(tint)
+    }
+
     @ViewBuilder
     private func errorRow(_ error: TfNSWError) -> some View {
-        let message: String = switch error {
+        let text: String = switch error {
         case .missingKey: "Add your Transport NSW API key in Settings"
         case .unauthorised: "That API key was rejected. Check it in Settings."
         case .http(let code): "Transport NSW returned an error (\(code))"
@@ -92,8 +144,8 @@ struct HomeView: View {
         }
         HStack(spacing: Theme.Spacing.s) {
             Image(systemName: "exclamationmark.triangle.fill")
-            Text(message).font(.footnote)
-            Spacer()
+            Text(text).font(.footnote)
+            Spacer(minLength: 0)
             if error == .missingKey || error == .unauthorised {
                 Button("Settings") { showingSettings = true }.font(.footnote.weight(.semibold))
             }

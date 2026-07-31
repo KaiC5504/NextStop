@@ -1,10 +1,20 @@
 import XCTest
 @testable import NextStop
 
+/// Records the URLs a client actually sent. A class so a `StubFetcher` copied by value into
+/// the client still writes somewhere the test can read.
+final class RequestLog: @unchecked Sendable {
+    private(set) var urls: [String] = []
+    func append(_ url: String) { urls.append(url) }
+    var last: String { urls.last ?? "" }
+}
+
 struct StubFetcher: HTTPFetching {
     var status: Int = 200
     var payload: Data = Data()
+    var log: RequestLog?
     func fetch(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        log?.append(request.url?.absoluteString ?? "")
         let response = HTTPURLResponse(
             url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil
         )!
@@ -57,6 +67,24 @@ final class TfNSWClientTests: XCTestCase {
         } catch {
             XCTFail("wrong error: \(error)")
         }
+    }
+
+    /// stop_finder searches with `type_sf=any` and returns POIs, suburbs and addresses
+    /// alongside stops. Labelling one of those ids a "stop" makes the API return zero
+    /// journeys and no error — which reads on screen as the app simply not responding.
+    func testDefaultTypesAreAnySoPoiDestinationsResolve() async throws {
+        let log = RequestLog()
+        let client = TfNSWClient(
+            session: StubFetcher(payload: Fixture.data("trip-sample"), log: log),
+            keyProvider: { "k" }
+        )
+        _ = try await client.journeys(
+            originID: "206710",
+            destinationID: "poiID:858286183:95301006:-1:The University of Sydney",
+            departing: Date()
+        )
+        XCTAssertTrue(log.last.contains("type_destination=any"), log.last)
+        XCTAssertTrue(log.last.contains("type_origin=any"), log.last)
     }
 
     func testJourneysDecodeFromAStubbedResponse() async throws {
