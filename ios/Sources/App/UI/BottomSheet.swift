@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SheetDetent: Equatable {
-    case peek, medium
+    case peek, medium, large
 }
 
 /// The drag maths, pure and tested. UIScrollView's constants, because the hand already
@@ -14,8 +14,11 @@ enum SheetPhysics {
         return position + velocity / 1000 * rate / (1 - rate)
     }
 
-    static func nearestDetent(peek: CGFloat, medium: CGFloat, projectedHeight: CGFloat) -> SheetDetent {
-        abs(projectedHeight - peek) < abs(projectedHeight - medium) ? .peek : .medium
+    /// Ties resolve toward the smaller detent (strict `<` keeps the first candidate),
+    /// which also makes medium == large — a short content sheet — collapse cleanly.
+    static func nearestDetent(peek: CGFloat, medium: CGFloat, large: CGFloat, projectedHeight: CGFloat) -> SheetDetent {
+        let candidates: [(SheetDetent, CGFloat)] = [(.peek, peek), (.medium, medium), (.large, large)]
+        return candidates.min { abs(projectedHeight - $0.1) < abs(projectedHeight - $1.1) }!.0
     }
 
     /// Logarithmic resistance past the ends, asymptotic to `dimension` so no fling can
@@ -27,13 +30,15 @@ enum SheetPhysics {
     }
 }
 
-/// A floating glass sheet with two snap points: `peek` shows the handle and the peek
-/// content, `medium` reveals the rest. Custom rather than `.presentationDetents`
-/// because the peek content holds a NavigationLink that must push on the root stack,
-/// Settings already presents as a real sheet above this screen, and the snap physics
-/// should match the app's spring.
+/// A floating glass sheet with three snap points: `peek` shows the handle and the peek
+/// content, `medium` reveals the top of the rest, `large` all of it. Custom rather than
+/// `.presentationDetents` because the peek content holds a NavigationLink that must push
+/// on the root stack, Settings already presents as a real sheet above this screen, and
+/// the snap physics should match the app's spring.
 struct BottomSheet<Peek: View, More: View>: View {
     @Binding var detent: SheetDetent
+    /// How much of the `more` region the medium detent shows.
+    var mediumReveal: CGFloat = 260
     @ViewBuilder let peek: () -> Peek
     @ViewBuilder let more: () -> More
 
@@ -79,7 +84,15 @@ struct BottomSheet<Peek: View, More: View>: View {
         }
     }
 
-    private var targetHeight: CGFloat { detent == .peek ? peekHeight : fullHeight }
+    private var mediumHeight: CGFloat { min(fullHeight, peekHeight + mediumReveal) }
+
+    private var targetHeight: CGFloat {
+        switch detent {
+        case .peek: peekHeight
+        case .medium: mediumHeight
+        case .large: fullHeight
+        }
+    }
 
     private var displayHeight: CGFloat {
         let raw = targetHeight - dragTranslation
@@ -103,7 +116,8 @@ struct BottomSheet<Peek: View, More: View>: View {
                     velocity: value.velocity.height
                 )
                 detent = SheetPhysics.nearestDetent(
-                    peek: peekHeight, medium: fullHeight, projectedHeight: projected
+                    peek: peekHeight, medium: mediumHeight, large: fullHeight,
+                    projectedHeight: projected
                 )
             }
     }
