@@ -16,10 +16,10 @@ struct UserPuckView: View {
                     .fill(
                         RadialGradient(
                             colors: [Theme.Colors.userPuck.opacity(0.55), .clear],
-                            center: .center, startRadius: 4, endRadius: 34
+                            center: .center, startRadius: 4, endRadius: 55
                         )
                     )
-                    .frame(width: 68, height: 68)
+                    .frame(width: 110, height: 110)
                     .rotationEffect(.degrees(rotation))
                     .transition(.opacity.combined(with: .scale(scale: 0.6)))
             }

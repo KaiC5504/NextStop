@@ -22,7 +22,7 @@ enum HeadingGeometry {
     /// nor widens into a meaningless disc. Nil in, nil out: no reading, no cone.
     static func apertureDegrees(forAccuracy accuracy: Double?) -> Double? {
         guard let accuracy, accuracy >= 0 else { return nil }
-        return min(max(accuracy * 2, 20), 90)
+        return min(max(accuracy * 2, 45), 110)
     }
 
     private static func normalize(_ degrees: Double) -> Double {

@@ -40,8 +40,8 @@ final class HeadingGeometryTests: XCTestCase {
     func testApertureClampsAndPassesNilThrough() {
         XCTAssertNil(HeadingGeometry.apertureDegrees(forAccuracy: nil))
         XCTAssertNil(HeadingGeometry.apertureDegrees(forAccuracy: -1))
-        XCTAssertEqual(HeadingGeometry.apertureDegrees(forAccuracy: 5), 20)
+        XCTAssertEqual(HeadingGeometry.apertureDegrees(forAccuracy: 5), 45)
         XCTAssertEqual(HeadingGeometry.apertureDegrees(forAccuracy: 30), 60)
-        XCTAssertEqual(HeadingGeometry.apertureDegrees(forAccuracy: 80), 90)
+        XCTAssertEqual(HeadingGeometry.apertureDegrees(forAccuracy: 80), 110)
     }
 }
