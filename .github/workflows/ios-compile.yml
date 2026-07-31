@@ -100,8 +100,11 @@ jobs:
         run: |
           UDID="${{ steps.sim.outputs.udid }}"
           xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/NextStop.app
+          # The boot-time grant can silently fail for a not-yet-installed bundle on
+          # recent runner images; granting again now the app exists actually sticks.
+          xcrun simctl privacy "$UDID" grant location com.kaichuan.nextstop || echo "post-install location grant failed"
           mkdir -p shots
-          for screen in home search settings layouts; do
+          for screen in home search settings layouts options journey; do
             xcrun simctl terminate "$UDID" com.kaichuan.nextstop 2>/dev/null || true
             sleep 3
             echo "--- launching $screen ---"

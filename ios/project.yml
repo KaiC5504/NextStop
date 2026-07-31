@@ -150,3 +150,10 @@ schemes:
       config: Debug
       targets:
         - NextStopTests
+      commandLineArguments:
+        # The hosted test launch is the one app launch CI cannot pass arguments to from
+        # the command line — and with none, RootView requests location, the simulator
+        # raises the system alert, and it sits over every screenshot taken afterwards.
+        # simctl's pre-emptive TCC grant stopped sticking on current runner images, so
+        # the prompt paths are suppressed the same way the screenshot launches do it.
+        "-initialScreen tests": true

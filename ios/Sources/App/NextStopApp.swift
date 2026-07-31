@@ -21,7 +21,7 @@ struct NextStopApp: App {
 struct RootView: View {
     @Environment(SpikeSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var model = AppModel()
+    @StateObject private var model: AppModel
     @State private var showingSettings: Bool
     private let requestedScreen: String?
 
@@ -33,6 +33,10 @@ struct RootView: View {
         // Settings sitting on top of the screen it was asked for.
         let requested = UserDefaults.standard.string(forKey: "initialScreen")
         requestedScreen = requested
+        // The options and journey screens need journeys to show, and CI has no API key.
+        _model = StateObject(
+            wrappedValue: requested == "options" || requested == "journey" ? .demo() : AppModel()
+        )
         let firstRun = requested == nil && KeychainStore.read() == nil
         _showingSettings = State(initialValue: requested == "settings" || firstRun)
     }
@@ -43,6 +47,16 @@ struct RootView: View {
             // Developer, and this screen is the only pre-device look at the layouts.
             ActivityHarnessView()
                 .preferredColorScheme(.dark)
+        } else if requestedScreen == "journey" {
+            NavigationStack {
+                LiveJourneyView()
+                    .background(Theme.Colors.background)
+            }
+            .environmentObject(model)
+            .environmentObject(model.store)
+            .environmentObject(model.location)
+            .preferredColorScheme(.dark)
+            .tint(Theme.Colors.textPrimary)
         } else {
             NavigationStack {
                 HomeView(showingSettings: $showingSettings)

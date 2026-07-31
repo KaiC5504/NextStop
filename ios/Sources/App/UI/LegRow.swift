@@ -6,7 +6,17 @@ struct LegRow: View {
     let now: Date
     var onFeedback: ((Bool) -> Void)?
 
+    /// Nil until the user decides; the active riding leg auto-expands until then.
+    @State private var manuallyExpanded: Bool?
+
     private var status: DepartureStatus { DepartureStatus(leg: leg) }
+
+    private var isRiding: Bool {
+        guard let departure = leg.departure, let arrival = leg.arrival else { return false }
+        return departure <= now && now < arrival
+    }
+
+    private var isExpanded: Bool { manuallyExpanded ?? isRiding }
 
     /// Walks show how long they take; transit shows how long until it leaves. The two
     /// used to share a bare "N min" and read as the same quantity.
@@ -62,6 +72,25 @@ struct LegRow: View {
                     Text(status.label)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(status.tint)
+                    if let stopCount = leg.rideStopCount {
+                        Button {
+                            withAnimation(.snappy) { manuallyExpanded = !isExpanded }
+                        } label: {
+                            HStack(spacing: Theme.Spacing.xs) {
+                                Text(stopSummary(stopCount))
+                                    .font(.footnote)
+                                Image(systemName: "chevron.down")
+                                    .font(.caption2.weight(.semibold))
+                                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                            }
+                            .foregroundStyle(Theme.Colors.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        if isExpanded {
+                            TransitStopList(stops: leg.stops, mode: leg.mode, now: now)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                    }
                 }
 
                 if hasDeparted, let onFeedback, !leg.mode.isWalking {
@@ -82,5 +111,12 @@ struct LegRow: View {
         }
         .padding(.vertical, Theme.Spacing.s)
         .animation(.snappy, value: hasDeparted)
+        .animation(.snappy, value: isExpanded)
+    }
+
+    private func stopSummary(_ count: Int) -> String {
+        let stops = "\(count) stop\(count == 1 ? "" : "s")"
+        guard let duration = TimeDisplay.durationLabel(seconds: leg.durationSeconds) else { return stops }
+        return "\(stops) · \(duration)"
     }
 }
