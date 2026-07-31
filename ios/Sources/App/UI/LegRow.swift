@@ -8,10 +8,12 @@ struct LegRow: View {
 
     private var status: DepartureStatus { DepartureStatus(leg: leg) }
 
-    private var minutesAway: Int? {
-        guard let departure = leg.departure else { return nil }
-        let seconds = departure.timeIntervalSince(now)
-        return seconds < -60 ? nil : Int((seconds / 60).rounded())
+    /// Walks show how long they take; transit shows how long until it leaves. The two
+    /// used to share a bare "N min" and read as the same quantity.
+    private var trailingLabel: String? {
+        leg.mode.isWalking
+            ? TimeDisplay.durationLabel(seconds: leg.durationSeconds)
+            : TimeDisplay.countdownLabel(to: leg.departure, now: now)
     }
 
     private var hasDeparted: Bool {
@@ -22,11 +24,7 @@ struct LegRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: Theme.Spacing.m) {
             VStack(spacing: 0) {
-                Image(systemName: leg.mode.symbolName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(leg.mode.isWalking ? Theme.Colors.textSecondary : .white)
-                    .frame(width: 34, height: 34)
-                    .background(Circle().fill(leg.mode.tint.opacity(leg.mode.isWalking ? 0.15 : 1)))
+                JourneyModeBadge(mode: leg.mode)
                 Rectangle()
                     .fill(leg.mode.tint.opacity(0.45))
                     .frame(width: 2)
@@ -45,8 +43,8 @@ struct LegRow: View {
                             .lineLimit(1)
                     }
                     Spacer()
-                    if let minutes = minutesAway {
-                        Text(minutes <= 0 ? "now" : "\(minutes) min")
+                    if let trailingLabel {
+                        Text(trailingLabel)
                             .font(.system(.headline, design: .rounded).weight(.bold))
                             .foregroundStyle(isNext ? Theme.Colors.textPrimary : Theme.Colors.textSecondary)
                             .contentTransition(.numericText())
@@ -54,7 +52,7 @@ struct LegRow: View {
                 }
 
                 if leg.mode.isWalking {
-                    Text("\(Int((leg.durationSeconds ?? 0) / 60)) min to \(leg.destinationName)")
+                    Text("to \(leg.destinationName)")
                         .font(.footnote)
                         .foregroundStyle(Theme.Colors.textSecondary)
                 } else {

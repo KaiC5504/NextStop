@@ -87,6 +87,16 @@ final class TfNSWClientTests: XCTestCase {
         XCTAssertTrue(log.last.contains("type_origin=any"), log.last)
     }
 
+    func testTripRequestsAskForSixAlternatives() async throws {
+        let log = RequestLog()
+        let client = TfNSWClient(
+            session: StubFetcher(payload: Fixture.data("trip-sample"), log: log),
+            keyProvider: { "k" }
+        )
+        _ = try await client.journeys(originID: "1", destinationID: "2", departing: Date())
+        XCTAssertTrue(log.last.contains("calcNumberOfTrips=6"), log.last)
+    }
+
     func testJourneysDecodeFromAStubbedResponse() async throws {
         let client = TfNSWClient(
             session: StubFetcher(payload: Fixture.data("trip-sample")), keyProvider: { "k" }

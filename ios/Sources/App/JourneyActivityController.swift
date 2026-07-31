@@ -12,6 +12,7 @@ final class JourneyActivityController {
 
     private var activity: Activity<JourneyActivityAttributes>?
     private var lastSent: JourneyActivityAttributes.ContentState?
+    private var lastSentAt: Date?
     /// Set when starting is pointless (activities disabled, request threw). Without it
     /// the 1-second sync tick would retry — and log — every second.
     private var startDeclined = false
@@ -45,8 +46,12 @@ final class JourneyActivityController {
             }
             return
         }
-        guard state != lastSent else { return }
+        if state == lastSent,
+           !ActivityHeartbeat.shouldResend(lastSentAt: lastSentAt, now: Date(), staleAfter: staleAfter) {
+            return
+        }
         lastSent = state
+        lastSentAt = Date()
         checkPayload(state)
         await activity.update(content(for: state))
     }
@@ -58,6 +63,7 @@ final class JourneyActivityController {
         let id = activity.id
         self.activity = nil
         lastSent = nil
+        lastSentAt = nil
         await activity.end(content(for: finalState), dismissalPolicy: .after(Date().addingTimeInterval(300)))
         SpikeLog.shared.write("journey.activity.arrived", id)
     }
@@ -67,6 +73,7 @@ final class JourneyActivityController {
         let id = activity.id
         self.activity = nil
         lastSent = nil
+        lastSentAt = nil
         startDeclined = false
         await activity.end(nil, dismissalPolicy: .immediate)
         SpikeLog.shared.write("journey.activity.ended", id)
@@ -87,6 +94,7 @@ final class JourneyActivityController {
             )
             activity = started
             lastSent = state
+            lastSentAt = Date()
             SpikeLog.shared.write("journey.activity.started", started.id)
         } catch {
             startDeclined = true

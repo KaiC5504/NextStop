@@ -59,13 +59,14 @@ struct LiveJourneyView: View {
     private func header(_ journey: Journey) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             if let arrival = journey.arrival {
-                Text("Arrive \(arrival.formatted(date: .omitted, time: .shortened))")
+                Text("Arrive \(TimeDisplay.clock.string(from: arrival))")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(Theme.Colors.textPrimary)
             }
-            if let duration = journey.duration {
+            if let duration = TimeDisplay.durationLabel(seconds: journey.duration.map(Int.init)) {
                 let count = journey.transitLegs.count
-                Text("\(Int(duration / 60)) min · \(count) service\(count == 1 ? "" : "s")")
+                let leave = journey.departure.map { "Leave \(TimeDisplay.clock.string(from: $0)) · " } ?? ""
+                Text("\(leave)\(duration) · \(count) service\(count == 1 ? "" : "s")")
                     .font(.footnote)
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
