@@ -66,7 +66,14 @@ struct JourneyLockScreenView: View {
                             .foregroundStyle(.white)
                             .lineLimit(1)
                     }
-                    if let headsign = state.headsign {
+                    // Aboard, the headsign has done its job — which station is next is
+                    // the fact the rider actually wants.
+                    if state.phase == .riding, let nextStop = state.nextStopName {
+                        Text("Next stop \(nextStop)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    } else if let headsign = state.headsign {
                         Text(headsign)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -81,6 +88,11 @@ struct JourneyLockScreenView: View {
                     Text("leg \(state.legIndex) of \(state.legCount)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                    if let stopIndex = state.stopIndex, let stopCount = state.stopCount {
+                        Text("stop \(stopIndex) of \(stopCount)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
@@ -152,6 +164,21 @@ struct JourneyProgressBar: View {
         }
         .progressViewStyle(.linear)
         .tint(isStale ? Theme.Colors.noRealtime : state.mode.tint)
+        // Station ticks. The fractions are computed against the same two anchors the
+        // timer animates over, so the fill edge crosses each tick at exactly that stop's
+        // scheduled moment — station progress with zero extra updates.
+        .overlay {
+            if let fractions = state.stopFractions, !fractions.isEmpty {
+                GeometryReader { geo in
+                    ForEach(fractions, id: \.self) { fraction in
+                        Capsule()
+                            .fill(Theme.Colors.background.opacity(0.9))
+                            .frame(width: 2, height: 4)
+                            .position(x: CGFloat(fraction) * geo.size.width, y: geo.size.height / 2)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -253,13 +280,22 @@ struct JourneyExpandedBottomView: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 Spacer(minLength: 8)
-                Text("arr \(state.arrivalShort) · leg \(state.legIndex)/\(state.legCount)")
+                Text(trailingSummary)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             if state.phase != .arrived {
                 JourneyProgressBar(state: state, isStale: isStale)
             }
         }
+    }
+
+    private var trailingSummary: String {
+        var parts = ["arr \(state.arrivalShort)", "leg \(state.legIndex)/\(state.legCount)"]
+        if let stopIndex = state.stopIndex, let stopCount = state.stopCount {
+            parts.append("stop \(stopIndex)/\(stopCount)")
+        }
+        return parts.joined(separator: " · ")
     }
 }
