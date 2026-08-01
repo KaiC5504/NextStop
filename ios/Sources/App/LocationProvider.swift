@@ -63,6 +63,26 @@ final class LocationProvider: NSObject, ObservableObject {
 
     func set(fidelity: Fidelity) { apply(fidelity) }
 
+    /// The statuses that may legally hold background location. WhenInUse is enough with
+    /// the location background mode declared; pure because the instance guard cannot be
+    /// driven through a real CLLocationManager in tests.
+    nonisolated static func canHoldBackground(_ status: CLAuthorizationStatus) -> Bool {
+        status == .authorizedWhenInUse || status == .authorizedAlways
+    }
+
+    /// Journey-scoped: while a journey runs the app must stay background-RUNNING — that
+    /// is what keeps the usage string's promise ("while your phone is locked") and what
+    /// makes willTerminate actually fire on a force-quit, so the Live Activity dies
+    /// with the app. Indicator on: the user should see the hold.
+    func setBackgroundHold(_ on: Bool) {
+        guard !on || Self.canHoldBackground(authorisation) else { return }
+        manager.allowsBackgroundLocationUpdates = on
+        manager.showsBackgroundLocationIndicator = on
+    }
+
+    /// Read-only window for tests, same pattern as `desiredAccuracy`.
+    var allowsBackgroundUpdates: Bool { manager.allowsBackgroundLocationUpdates }
+
     private func apply(_ fidelity: Fidelity) {
         switch fidelity {
         case .ambient:

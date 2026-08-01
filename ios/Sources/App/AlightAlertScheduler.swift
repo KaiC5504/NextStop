@@ -22,6 +22,15 @@ final class AlightAlertScheduler {
         self.center = center
     }
 
+    /// Launch-time orphan sweep. At init this process has scheduled nothing, so every
+    /// pending "alight-" request is a leftover from a previous life — a force-quit the
+    /// terminate hook never saw. Reads and removals never prompt; `begin()` still owns
+    /// the permission moment.
+    func sweepOrphansAtLaunch() async {
+        let orphans = await center.pendingAlertIDs()
+        if !orphans.isEmpty { center.removePending(ids: orphans) }
+    }
+
     /// First call asks for permission (this is the journey-commitment moment, the one
     /// place a prompt reads as expected) and sweeps orphans a force-quit left pending.
     func begin(journey: Journey?, now: Date) async {

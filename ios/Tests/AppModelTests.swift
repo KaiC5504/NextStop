@@ -152,6 +152,48 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.planTimeSelection, .leaveNow)
     }
 
+    /// Init must clean up notifications a force-quit stranded, without waiting for a
+    /// journey screen to open — that was the gap that let stale alerts ring.
+    func testInitSweepsOrphanedAlightAlerts() async {
+        let spy = SpyNotificationCenter()
+        spy.pending = ["alight-zombie"]
+        _ = AppModel(
+            client: TfNSWClient(session: StubFetcher(), keyProvider: { "k" }),
+            store: LocalStore(fileURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent("model-\(UUID().uuidString).json")),
+            alightAlerts: AlightAlertScheduler(center: spy)
+        )
+        // The sweep is a fire-and-forget Task on this same actor: give it turns, not time.
+        for _ in 0..<10 where spy.removed.isEmpty { await Task.yield() }
+        XCTAssertEqual(spy.removed, ["alight-zombie"])
+        XCTAssertEqual(spy.authorizationRequests, 0)
+    }
+
+    /// The background hold exists exactly while a journey is active. The spy scheduler
+    /// is not optional: startJourneyActivity reaches the notification-permission path,
+    /// and the real center's dialog would park over every CI screenshot.
+    func testJourneyLifecycleRaisesAndDropsTheBackgroundHold() async {
+        let spy = SpyNotificationCenter()
+        let model = AppModel(
+            client: TfNSWClient(
+                session: StubFetcher(payload: Fixture.data("trip-sample")), keyProvider: { "k" }
+            ),
+            store: LocalStore(fileURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent("model-\(UUID().uuidString).json")),
+            alightAlerts: AlightAlertScheduler(center: spy)
+        )
+        await model.plan(to: usyd)
+        XCTAssertFalse(model.isJourneyActive)
+        model.startJourneyActivity()
+        XCTAssertTrue(model.isJourneyActive)
+        if LocationProvider.canHoldBackground(model.location.authorisation) {
+            XCTAssertTrue(model.location.allowsBackgroundUpdates)
+        }
+        model.reset()
+        XCTAssertFalse(model.isJourneyActive)
+        XCTAssertFalse(model.location.allowsBackgroundUpdates)
+    }
+
     /// The reset path must tear down whatever the shared scheduler armed.
     func testResetCancelsArmedAlightAlerts() async {
         let spy = SpyNotificationCenter()

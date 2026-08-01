@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct NextStopApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = SpikeSession()
     @Environment(\.scenePhase) private var scenePhase
 
@@ -88,9 +89,15 @@ struct RootView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
-                case .active: model.location.start()
-                case .background: model.location.stop()
-                default: break
+                case .active:
+                    model.location.start()
+                case .background:
+                    // Mid-journey the location stream IS the background hold; stopping
+                    // it would suspend the app and orphan the Live Activity on a
+                    // force-quit.
+                    if !model.isJourneyActive { model.location.stop() }
+                default:
+                    break
                 }
             }
         }
