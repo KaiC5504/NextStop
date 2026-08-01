@@ -3,8 +3,6 @@ import UIKit
 
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
-    @EnvironmentObject private var location: LocationProvider
-    @Environment(\.openURL) private var openURL
     @Binding var showingSettings: Bool
     // CI screenshots the expanded search with `-initialScreen search`; there is no other
     // way to look at it before a device build exists.
@@ -33,48 +31,15 @@ struct HomeView: View {
 
             VStack(spacing: Theme.Spacing.s) {
                 topControls
-                if locationDenied && !searchExpanded {
-                    locationDeniedBanner
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                if !searchExpanded {
+                    LocationDeniedBanner()
                 }
             }
             bottomCard
         }
-        .animation(.snappy, value: locationDenied)
         .sensoryFeedback(.success, trigger: model.phase) { _, new in new == .ready }
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showJourney) { LiveJourneyView() }
-    }
-
-    private var locationDenied: Bool {
-        location.authorisation == .denied || location.authorisation == .restricted
-    }
-
-    /// The fallback origin is deliberate — a journey from the wrong place is visible and
-    /// correctable — but only if the user is told it is happening.
-    private var locationDeniedBanner: some View {
-        HStack(spacing: Theme.Spacing.s) {
-            Image(systemName: "location.slash.fill")
-                .foregroundStyle(Theme.Colors.late)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Location is off")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                Text("Journeys start from Chatswood Station")
-                    .font(.caption)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            }
-            Spacer(minLength: Theme.Spacing.s)
-            Button("Settings") {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    openURL(url)
-                }
-            }
-            .font(.footnote.weight(.semibold))
-        }
-        .padding(Theme.Spacing.m)
-        .glassSurface(cornerRadius: Theme.Radius.pill)
-        .padding(.horizontal, Theme.Spacing.m)
     }
 
     private var topControls: some View {
@@ -114,24 +79,23 @@ struct HomeView: View {
             Spacer()
             if hasBottomContent {
                 // Status above options: the peek detent shows the summary, dragging up
-                // reveals the alternatives beneath it.
-                BottomSheet(detent: $sheetDetent) {
-                    statusContent
-                } more: {
-                    if !model.journeys.isEmpty {
-                        JourneyOptionsList(detent: sheetDetent) { showJourney = true }
+                // reveals the alternatives beneath it. The resting height — not a
+                // per-frame measurement — moves the map's recenter button, so it rides
+                // detents with the same spring instead of tracking the finger.
+                BottomSheet(
+                    detent: $sheetDetent,
+                    onRestingHeight: { height in
+                        withAnimation(SheetPhysics.spring) { bottomContentHeight = height }
+                    },
+                    peek: { statusContent },
+                    more: {
+                        if !model.journeys.isEmpty {
+                            JourneyOptionsList(detent: sheetDetent) { showJourney = true }
+                        }
                     }
-                }
-                // Measured so the map's recenter button rides above the sheet, drag
-                // included.
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.size.height
-                } action: { height in
-                    bottomContentHeight = height
-                }
+                )
             }
         }
-        .padding(.bottom, Theme.Spacing.s)
         .onChange(of: hasBottomContent) { _, has in
             if !has { bottomContentHeight = 0 }
         }
@@ -205,6 +169,55 @@ struct HomeView: View {
             Spacer(minLength: 0)
         }
         .foregroundStyle(tint)
+    }
+
+    /// Owns its own LocationProvider subscription so compass ticks invalidate this one
+    /// small view instead of the whole Home tree — sheet, map and all. The fallback
+    /// origin is deliberate — a journey from the wrong place is visible and correctable
+    /// — but only if the user is told it is happening.
+    private struct LocationDeniedBanner: View {
+        @EnvironmentObject private var location: LocationProvider
+        @Environment(\.openURL) private var openURL
+
+        private var denied: Bool {
+            location.authorisation == .denied || location.authorisation == .restricted
+        }
+
+        var body: some View {
+            // The ZStack is the stable container the transition animates within.
+            ZStack {
+                if denied {
+                    banner
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+            .animation(.snappy, value: denied)
+        }
+
+        private var banner: some View {
+            HStack(spacing: Theme.Spacing.s) {
+                Image(systemName: "location.slash.fill")
+                    .foregroundStyle(Theme.Colors.late)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Location is off")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                    Text("Journeys start from Chatswood Station")
+                        .font(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
+                Spacer(minLength: Theme.Spacing.s)
+                Button("Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        openURL(url)
+                    }
+                }
+                .font(.footnote.weight(.semibold))
+            }
+            .padding(Theme.Spacing.m)
+            .glassSurface(cornerRadius: Theme.Radius.pill)
+            .padding(.horizontal, Theme.Spacing.m)
+        }
     }
 
     @ViewBuilder

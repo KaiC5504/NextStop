@@ -4,12 +4,18 @@ struct LiveJourneyView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var store: LocalStore
 
+    @Environment(\.dismiss) private var dismiss
+
     @State private var now = Date()
     @State private var lastRefresh = Date()
     @State private var bottomContentHeight: CGFloat = 0
     // The journey screenshot starts at .large: CI cannot drag the sheet up.
     @State private var sheetDetent: SheetDetent =
         UserDefaults.standard.string(forKey: "initialScreen") == "journey" ? .large : .medium
+    @State private var sheetDragging = false
+    /// Stable per-appearance anchor for the banner's state derivation — the activity's
+    /// own start time is private to the model and never set in demo mode.
+    @State private var appearedAt = Date()
 
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     /// The realtime feed itself only moves every 10–15 seconds, so anything faster than this
@@ -25,48 +31,63 @@ struct LiveJourneyView: View {
             )
 
             if let journey = model.selectedJourney {
-                BottomSheet(detent: $sheetDetent) {
-                    header(journey)
-                } more: {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(Array(journey.legs.enumerated()), id: \.element.id) { index, leg in
-                                LegRow(
-                                    leg: leg,
-                                    isNext: index == nextLegIndex(journey),
-                                    now: now,
-                                    onFeedback: store.ratedLegIDs.contains(leg.id) ? nil : { record(leg, $0) }
-                                )
+                BottomSheet(
+                    detent: $sheetDetent,
+                    onRestingHeight: { height in
+                        withAnimation(SheetPhysics.spring) { bottomContentHeight = height }
+                    },
+                    onDragChanged: { sheetDragging = $0 },
+                    peek: { header(journey) },
+                    more: {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(Array(journey.legs.enumerated()), id: \.element.id) { index, leg in
+                                    LegRow(
+                                        leg: leg,
+                                        isNext: index == nextLegIndex(journey),
+                                        now: now,
+                                        onFeedback: store.ratedLegIDs.contains(leg.id) ? nil : { record(leg, $0) }
+                                    )
+                                }
                             }
+                            .padding(.horizontal, Theme.Spacing.m)
                         }
-                        .padding(.horizontal, Theme.Spacing.m)
+                        .scrollIndicators(.hidden)
+                        // Sheet drags at medium, list scrolls at large — same split as Home.
+                        .scrollDisabled(sheetDetent != .large)
+                        .frame(maxHeight: 520)
                     }
-                    .scrollIndicators(.hidden)
-                    // Sheet drags at medium, list scrolls at large — same split as Home.
-                    .scrollDisabled(sheetDetent != .large)
-                    .frame(maxHeight: 520)
-                }
-                // Measured so the map's recenter button rides above the sheet.
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.size.height
-                } action: { height in
-                    bottomContentHeight = height
-                }
-                .padding(.bottom, Theme.Spacing.s)
+                )
             }
         }
-        .navigationTitle(model.destination?.name ?? "Journey")
-        .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .top, spacing: 0) { topBanner }
+        // The banner replaces the navigation bar — its back chevron is the way home.
+        .toolbar(.hidden, for: .navigationBar)
         // A leg transition is the one moment worth a physical nudge mid-journey.
         .sensoryFeedback(.impact(weight: .medium), trigger: model.selectedJourney?.activeLeg(at: now)?.id)
         .onAppear { model.startJourneyActivity() }
         .onReceive(tick) { instant in
+            // A tick mid-drag re-morphs every countdown and rebuilds the map content
+            // under the finger; the drag lasts well under a second, so skipping is free.
+            guard !sheetDragging else { return }
             now = instant
             model.syncJourneyActivity(now: instant)
             if instant.timeIntervalSince(lastRefresh) >= refreshEvery {
                 lastRefresh = instant
                 Task { await model.refresh() }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var topBanner: some View {
+        if let journey = model.selectedJourney,
+           let destination = model.destination,
+           let state = JourneyActivityState.make(
+               journey: journey, destinationName: destination.name,
+               startedAt: appearedAt, now: now
+           ) {
+            JourneyBannerView(model: .make(state: state, now: now), onBack: { dismiss() })
         }
     }
 
