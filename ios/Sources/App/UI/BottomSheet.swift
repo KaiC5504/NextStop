@@ -11,6 +11,11 @@ enum SheetPhysics {
     /// programmatic detent writes, and the recenter button riding between insets.
     static let spring = Animation.spring(response: 0.38, dampingFraction: 0.82)
 
+    /// Glass drawn past the content's bottom edge: covers the home-indicator area at
+    /// rest and backs any upward rubber-band overshoot (the band is asymptotic to it).
+    /// Lives here because generic types can't hold static stored properties.
+    static let topSlack: CGFloat = 80
+
     /// Where a released drag would coast to: UIKit's projection formula at the `.fast`
     /// deceleration rate — a sheet should settle briskly, not sail.
     static func projectedEnd(position: CGFloat, velocity: CGFloat) -> CGFloat {
@@ -92,10 +97,6 @@ struct BottomSheet<Peek: View, More: View>: View {
     @State private var peekHeight: CGFloat = 0
     @State private var fullHeight: CGFloat = 0
 
-    /// Glass drawn past the content's bottom edge: covers the home-indicator area at
-    /// rest and backs any upward rubber-band overshoot (the band is asymptotic to it).
-    private static let topSlack: CGFloat = 80
-
     var body: some View {
         content
             // Natural size, not the proposed one: a greedy ScrollView would otherwise
@@ -105,7 +106,7 @@ struct BottomSheet<Peek: View, More: View>: View {
                 fullHeight = height
                 publishResting()
             }
-            .padding(.bottom, Self.topSlack)
+            .padding(.bottom, SheetPhysics.topSlack)
             .frame(maxWidth: .infinity)
             .glassSurface()
             .padding(.horizontal, Theme.Spacing.s)
@@ -161,7 +162,7 @@ struct BottomSheet<Peek: View, More: View>: View {
         SheetPhysics.visibleHeight(
             target: targetHeight,
             translation: SheetPhysics.effectiveTranslation(dragTranslation),
-            peek: peekHeight, full: fullHeight, topSlack: Self.topSlack
+            peek: peekHeight, full: fullHeight, topSlack: SheetPhysics.topSlack
         )
     }
 
@@ -169,7 +170,7 @@ struct BottomSheet<Peek: View, More: View>: View {
     /// the host) so exactly `visibleHeight` of content stays on screen. The slack keeps
     /// glass past the bottom edge for any overshoot the rubber band allows.
     private var cardOffset: CGFloat {
-        fullHeight == 0 ? 0 : Self.topSlack + fullHeight - visibleHeight
+        fullHeight == 0 ? 0 : SheetPhysics.topSlack + fullHeight - visibleHeight
     }
 
     private func publishResting() { onRestingHeight?(targetHeight) }
