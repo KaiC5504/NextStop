@@ -11,7 +11,7 @@ final class HeadingGeometryTests: XCTestCase {
     func testScreenRotationSubtractsTheCameraRotation() {
         XCTAssertEqual(HeadingGeometry.screenRotation(deviceHeading: 10, cameraHeading: 30), 340)
         XCTAssertEqual(HeadingGeometry.screenRotation(deviceHeading: 30, cameraHeading: 10), 20)
-        // Heading-up follow: camera matches device, cone points straight up.
+        // Heading-up follow: camera matches device, arrow points straight up.
         XCTAssertEqual(HeadingGeometry.screenRotation(deviceHeading: 217, cameraHeading: 217), 0)
     }
 
@@ -33,15 +33,7 @@ final class HeadingGeometryTests: XCTestCase {
 
     func testContinuousRotationBreaksTheHalfTurnTieAnticlockwise() {
         // Either direction is 180°; the implementation picks anticlockwise. Pinned so a
-        // refactor cannot silently make the cone flip direction on the tie.
+        // refactor cannot silently make the arrow flip direction on the tie.
         XCTAssertEqual(HeadingGeometry.continuousRotation(from: 0, to: 180), -180)
-    }
-
-    func testApertureClampsAndPassesNilThrough() {
-        XCTAssertNil(HeadingGeometry.apertureDegrees(forAccuracy: nil))
-        XCTAssertNil(HeadingGeometry.apertureDegrees(forAccuracy: -1))
-        XCTAssertEqual(HeadingGeometry.apertureDegrees(forAccuracy: 5), 45)
-        XCTAssertEqual(HeadingGeometry.apertureDegrees(forAccuracy: 30), 60)
-        XCTAssertEqual(HeadingGeometry.apertureDegrees(forAccuracy: 80), 110)
     }
 }

@@ -77,7 +77,7 @@ struct JourneyOptionRow: View {
     }
 
     private func items(walkMinutes: Bool, includeWalks: Bool) -> [SequenceItem] {
-        journey.legs.compactMap { leg in
+        journey.legs.compactMap { leg -> SequenceItem? in
             guard leg.mode.isWalking else { return .transit(leg) }
             guard includeWalks else { return nil }
             return .walk(minutes: walkMinutes ? TimeDisplay.walkBadgeMinutes(seconds: leg.durationSeconds) : nil)
