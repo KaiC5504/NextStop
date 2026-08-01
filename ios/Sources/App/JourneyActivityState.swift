@@ -109,7 +109,7 @@ enum JourneyActivityState {
         return RideStops(
             index: min(max(StopProgress.passedCount(times: times, now: now), 1), leg.stops.count),
             count: leg.stops.count,
-            nextName: next?.name,
+            nextName: next.map { StopName.short($0.name) },
             fractions: intermediates.count > Self.maxTickStops
                 ? [] : StopProgress.tickFractions(times: intermediates, start: start, end: end)
         )
