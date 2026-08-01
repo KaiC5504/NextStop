@@ -45,7 +45,7 @@ final class LocationProviderTests: XCTestCase {
     }
 
     /// A negative heading accuracy means the compass reading is unusable. Clearing both
-    /// values is what hides the cone — a stale direction is worse than none.
+    /// values is what hides the arrow — a stale direction is worse than none.
     func testInvalidHeadingClearsBothValues() {
         let provider = LocationProvider()
         provider.ingest(headingDegrees: 45, accuracy: 10)

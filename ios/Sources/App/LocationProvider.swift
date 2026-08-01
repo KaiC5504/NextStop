@@ -3,7 +3,7 @@ import CoreLocation
 @MainActor
 final class LocationProvider: NSObject, ObservableObject {
     /// `ambient` is enough to pick a journey origin. `navigation` is what a moving puck
-    /// and heading cone need — hundred-metre fixes make the dot visibly wander at
+    /// and heading arrow need — hundred-metre fixes make the dot visibly wander at
     /// walking pace. The values mirror the spike's proven `LocationUpdatesHolder`.
     enum Fidelity {
         case ambient, navigation
@@ -14,7 +14,7 @@ final class LocationProvider: NSObject, ObservableObject {
     /// Degrees clockwise from north — true heading when a fix allows declination,
     /// magnetic otherwise. Nil until the compass produces a usable reading.
     @Published private(set) var headingDegrees: Double?
-    /// Compass confidence in degrees. Nil means the reading is unusable and the cone
+    /// Compass confidence in degrees. Nil means the reading is unusable and the arrow
     /// should hide rather than point somewhere invented.
     @Published private(set) var headingAccuracy: Double?
     @Published private(set) var authorisation: CLAuthorizationStatus = .notDetermined
@@ -27,12 +27,12 @@ final class LocationProvider: NSObject, ObservableObject {
     override init() {
         super.init()
         manager.delegate = self
-        // Two degrees is below what the cone can visibly show; anything finer just
-        // re-renders a polyline-heavy map for no perceptible movement.
+        // Two degrees is barely perceptible on a 13pt arrow; anything finer just
+        // re-renders a polyline-heavy map for no visible movement.
         manager.headingFilter = 2
         apply(.ambient)
         authorisation = manager.authorizationStatus
-        // CI screenshots need the cone and the simulator has no compass.
+        // CI screenshots need the heading arrow and the simulator has no compass.
         if let fake = UserDefaults.standard.string(forKey: "fakeHeading"),
            let degrees = Double(fake) {
             ingest(headingDegrees: degrees, accuracy: 15)

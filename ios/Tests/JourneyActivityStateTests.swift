@@ -152,6 +152,23 @@ final class JourneyActivityStateTests: XCTestCase {
         }
     }
 
+    /// Real stop names carry boarding suffixes; the Lock Screen caption should not.
+    func testNextStopNameIsCleaned() throws {
+        var legs = journey().legs
+        let suffixed = [
+            stop("Chatswood Station, Platform 2", arrival: nil, departure: 780),
+            stop("Artarmon Station, Platform 2", arrival: 1_000),
+            stop("St Leonards Station, Platform 1", arrival: 1_240),
+            stop("Central Station, Platform 16", arrival: 2_400),
+        ]
+        legs[1] = leg(id: "train", mode: .train, route: "T1",
+                      origin: "Chatswood Station", destination: "Central",
+                      plannedDeparture: 600, estimatedDeparture: 780,
+                      plannedArrival: 2_400, realtime: true, stops: suffixed)
+        let state = try XCTUnwrap(derive(at: 1_100, journey: Journey(id: "test", legs: legs)))
+        XCTAssertEqual(state.nextStopName, "St Leonards Station")
+    }
+
     func testRidingWithoutAStopSequenceDerivesNilProgress() throws {
         var legs = journey().legs
         legs[1] = leg(id: "train", mode: .train, route: "T1",

@@ -18,6 +18,31 @@ enum TimeDisplay {
         return "\(max(1, Int((Double(seconds) / 60).rounded()))) min"
     }
 
+    /// "4:27 – 5:10 am": a shared meridiem collapses; "11:58 am – 12:20 pm" keeps both.
+    static func clockRange(from: Date, to: Date) -> String {
+        var lhs = clock.string(from: from)
+        let rhs = clock.string(from: to)
+        for meridiem in [" am", " pm"] where lhs.hasSuffix(meridiem) && rhs.hasSuffix(meridiem) {
+            lhs = String(lhs.dropLast(meridiem.count))
+        }
+        return "\(lhs) – \(rhs)"
+    }
+
+    /// The route row's big number: "43 min" below the hour, "1 hr" / "1 hr 15 min" above.
+    static func longDurationLabel(seconds: Int?) -> String? {
+        guard let seconds, seconds > 0 else { return nil }
+        let minutes = max(1, Int((Double(seconds) / 60).rounded()))
+        guard minutes >= 60 else { return "\(minutes) min" }
+        let rest = minutes % 60
+        return rest == 0 ? "\(minutes / 60) hr" : "\(minutes / 60) hr \(rest) min"
+    }
+
+    /// Bare minutes for the sequence line's walk glyph: "5". Nil hides it like the others.
+    static func walkBadgeMinutes(seconds: Int?) -> String? {
+        guard let seconds, seconds > 0 else { return nil }
+        return "\(max(1, Int((Double(seconds) / 60).rounded())))"
+    }
+
     /// "in 14 min" while the leg is ahead, "now" around its start, nil once it is more
     /// than a minute gone — the countdown the leg list has always shown, but labeled so
     /// it can no longer be misread as a duration.

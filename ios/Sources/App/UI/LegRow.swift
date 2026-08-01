@@ -46,6 +46,8 @@ struct LegRow: View {
                     Text(leg.route ?? leg.mode.displayName)
                         .font(.headline)
                         .foregroundStyle(Theme.Colors.textPrimary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                     if let headsign = leg.headsign, !leg.mode.isWalking {
                         Text(headsign)
                             .font(.subheadline)
@@ -58,6 +60,8 @@ struct LegRow: View {
                             .font(.system(.headline, design: .rounded).weight(.bold))
                             .foregroundStyle(isNext ? Theme.Colors.textPrimary : Theme.Colors.textSecondary)
                             .contentTransition(.numericText())
+                            .lineLimit(1)
+                            .fixedSize()
                     }
                 }
 
@@ -66,7 +70,7 @@ struct LegRow: View {
                         .font(.footnote)
                         .foregroundStyle(Theme.Colors.textSecondary)
                 } else {
-                    Text("from \(leg.originName)")
+                    Text(fromLine)
                         .font(.footnote)
                         .foregroundStyle(Theme.Colors.textSecondary)
                     Text(status.label)
@@ -112,6 +116,14 @@ struct LegRow: View {
         .padding(.vertical, Theme.Spacing.s)
         .animation(.snappy, value: hasDeparted)
         .animation(.snappy, value: isExpanded)
+    }
+
+    /// Platform is boarding signal, so it stays visible here — set off from the stop
+    /// name instead of buried in it.
+    private var fromLine: String {
+        let name = StopName.short(leg.originName)
+        guard let platform = StopName.platform(leg.originName) else { return "from \(name)" }
+        return "from \(name) · \(platform)"
     }
 
     private func stopSummary(_ count: Int) -> String {

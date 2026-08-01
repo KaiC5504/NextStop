@@ -61,7 +61,7 @@ struct JourneyMapView: View {
     /// Mirror of the live camera heading, quantised: every write re-evaluates a body
     /// full of polylines, and sub-degree jitter is not worth a render.
     @State private var cameraHeading: Double = 0
-    /// Unwrapped accumulator — allowed outside 0–360 — so the cone animates the short
+    /// Unwrapped accumulator — allowed outside 0–360 — so the arrow animates the short
     /// way around instead of spinning back through a full turn at the wrap point.
     @State private var puckRotation: Double = 0
     @State private var cameraDistance: Double = 0
@@ -72,10 +72,7 @@ struct JourneyMapView: View {
         ZStack(alignment: .bottomTrailing) {
             Map(position: $position) {
                 UserAnnotation { _ in
-                    UserPuckView(
-                        rotation: location.headingDegrees != nil ? puckRotation : nil,
-                        apertureDegrees: HeadingGeometry.apertureDegrees(forAccuracy: location.headingAccuracy)
-                    )
+                    UserPuckView(rotation: location.headingDegrees != nil ? puckRotation : nil)
                 }
                 if let journey {
                     ForEach(Array(journey.legs.enumerated()), id: \.element.id) { index, leg in
@@ -94,18 +91,18 @@ struct JourneyMapView: View {
                     if MapFraming.showsIntermediateStops(cameraDistance: cameraDistance) {
                         ForEach(journey.transitLegs) { leg in
                             ForEach(leg.stops.dropFirst().dropLast()) { stop in
-                                Annotation(stop.name, coordinate: stop.coordinate) { stopDot(leg.mode) }
+                                Annotation(StopName.short(stop.name), coordinate: stop.coordinate) { stopDot(leg.mode) }
                             }
                         }
                         .annotationTitles(.hidden)
                     }
                     ForEach(journey.transitLegs) { leg in
                         if let start = leg.path.first {
-                            Annotation(leg.originName, coordinate: start) { interchangeDot(leg.mode) }
+                            Annotation(StopName.short(leg.originName), coordinate: start) { interchangeDot(leg.mode) }
                         }
                     }
                     if let final = journey.legs.last, let end = final.path.last {
-                        Annotation(final.destinationName, coordinate: end) { interchangeDot(final.mode) }
+                        Annotation(StopName.short(final.destinationName), coordinate: end) { interchangeDot(final.mode) }
                     }
                 }
             }

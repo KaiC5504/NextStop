@@ -38,8 +38,12 @@ struct JourneyRouteCapsule: View {
     let tint: Color
 
     var body: some View {
+        // A squeezed HStack proposes near-zero width and an unconstrained Text then
+        // wraps per character — a vertical "N40". The badge never bends.
         Text(text)
             .font(.caption.weight(.bold))
+            .lineLimit(1)
+            .fixedSize()
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(Capsule().fill(tint))

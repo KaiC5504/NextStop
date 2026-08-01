@@ -63,20 +63,23 @@ final class StopProgressTests: XCTestCase {
         XCTAssertEqual(StopProgress.tickFractions(times: [], start: at(0), end: at(60)), [])
     }
 
-    func testSpineFillSpansTheShownDots() {
-        XCTAssertEqual(StopProgress.spineFillFraction(position: 1, stopCount: 4), 0)
-        XCTAssertEqual(StopProgress.spineFillFraction(position: 2, stopCount: 4), 0.5, accuracy: 0.0001)
-        XCTAssertEqual(StopProgress.spineFillFraction(position: 3, stopCount: 4), 1)
+    func testSpineFillHeightReducesToUniformWhenRowsMatch() {
+        XCTAssertEqual(StopProgress.spineFillHeight(position: 1, stopCount: 4, rowHeight: 28, finalRowHeight: 28), 0)
+        XCTAssertEqual(StopProgress.spineFillHeight(position: 2, stopCount: 4, rowHeight: 28, finalRowHeight: 28), 28)
+        XCTAssertEqual(StopProgress.spineFillHeight(position: 3, stopCount: 4, rowHeight: 28, finalRowHeight: 28), 56)
     }
 
-    func testSpineFillClamps() {
-        XCTAssertEqual(StopProgress.spineFillFraction(position: 0, stopCount: 4), 0)
-        XCTAssertEqual(StopProgress.spineFillFraction(position: 9, stopCount: 4), 1)
+    /// The alighting row is taller, so the last segment stretches to reach its dot's
+    /// centre: rows [28, 28, 56] put segments at [28, 42].
+    func testSpineFillHeightStretchesTheFinalSegment() {
+        XCTAssertEqual(StopProgress.spineFillHeight(position: 2, stopCount: 4, rowHeight: 28, finalRowHeight: 56), 28)
+        XCTAssertEqual(StopProgress.spineFillHeight(position: 2.5, stopCount: 4, rowHeight: 28, finalRowHeight: 56), 49)
+        XCTAssertEqual(StopProgress.spineFillHeight(position: 3, stopCount: 4, rowHeight: 28, finalRowHeight: 56), 70)
     }
 
-    /// An origin-plus-destination sequence has a single shown dot: all or nothing.
-    func testSpineFillTinySequences() {
-        XCTAssertEqual(StopProgress.spineFillFraction(position: 0.9, stopCount: 2), 0)
-        XCTAssertEqual(StopProgress.spineFillFraction(position: 1, stopCount: 2), 1)
+    func testSpineFillHeightClampsAndDegenerates() {
+        XCTAssertEqual(StopProgress.spineFillHeight(position: 0, stopCount: 4, rowHeight: 28, finalRowHeight: 56), 0)
+        XCTAssertEqual(StopProgress.spineFillHeight(position: 99, stopCount: 4, rowHeight: 28, finalRowHeight: 56), 70)
+        XCTAssertEqual(StopProgress.spineFillHeight(position: 1, stopCount: 2, rowHeight: 28, finalRowHeight: 56), 0)
     }
 }

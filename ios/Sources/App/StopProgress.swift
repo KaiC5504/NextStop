@@ -40,13 +40,28 @@ enum StopProgress {
         return fractions
     }
 
-    /// Fill fraction for the expanded station list's spine. The boarding stop isn't
-    /// rendered (it's the row's "from X"), so the spine runs from the first shown dot's
-    /// centre to the alighting dot's: position 1 → 0, position stopCount − 1 → 1.
-    static func spineFillFraction(position: Double, stopCount: Int) -> Double {
-        guard stopCount > 2 else {
-            return position >= Double(max(stopCount - 1, 1)) ? 1 : 0
+    /// Physical fill height for the expanded station list's spine. The boarding stop
+    /// isn't rendered (it's the row's "from X"), so the spine runs dot centre to dot
+    /// centre over stopCount − 1 shown dots — every segment `rowHeight` tall except the
+    /// last, which spans into the taller alighting row: (rowHeight + finalRowHeight) / 2.
+    /// Position 1 → 0, position stopCount − 1 → the full track height.
+    static func spineFillHeight(
+        position: Double, stopCount: Int, rowHeight: Double, finalRowHeight: Double
+    ) -> Double {
+        let segments = stopCount - 2
+        guard segments >= 1 else { return 0 }
+        var remaining = min(max(position - 1, 0), Double(segments))
+        var height = 0.0
+        for index in 0..<segments {
+            let length = index == segments - 1 ? (rowHeight + finalRowHeight) / 2 : rowHeight
+            if remaining >= 1 {
+                height += length
+                remaining -= 1
+            } else {
+                height += remaining * length
+                break
+            }
         }
-        return min(max((position - 1) / Double(stopCount - 2), 0), 1)
+        return height
     }
 }
