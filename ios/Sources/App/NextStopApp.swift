@@ -33,9 +33,12 @@ struct RootView: View {
         // Settings sitting on top of the screen it was asked for.
         let requested = UserDefaults.standard.string(forKey: "initialScreen")
         requestedScreen = requested
-        // The options and journey screens need journeys to show, and CI has no API key.
+        // The options, journey and medium-detent screens need journeys to show, and CI
+        // has no API key. "medium" falls through to the Home branch at its default
+        // detent — the only way to photograph the sheet's resting medium geometry.
+        let demoScreens = ["options", "journey", "medium"]
         _model = StateObject(
-            wrappedValue: requested == "options" || requested == "journey" ? .demo() : AppModel()
+            wrappedValue: requested.map(demoScreens.contains) == true ? .demo() : AppModel()
         )
         let firstRun = requested == nil && KeychainStore.read() == nil
         _showingSettings = State(initialValue: requested == "settings" || firstRun)
