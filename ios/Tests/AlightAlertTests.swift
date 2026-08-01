@@ -6,8 +6,13 @@ final class SpyNotificationCenter: NotificationScheduling {
     var pending: [String] = []
     private(set) var added: [AlightAlert] = []
     private(set) var removed: [String] = []
+    private(set) var authorizationRequests = 0
 
-    func requestAuthorization() async -> Bool { authorize }
+    func requestAuthorization() async -> Bool {
+        authorizationRequests += 1
+        return authorize
+    }
+
     func add(_ alert: AlightAlert) async { added.append(alert) }
     func removePending(ids: [String]) { removed.append(contentsOf: ids) }
     func pendingAlertIDs() async -> [String] { pending }
@@ -121,6 +126,27 @@ final class AlightAlertTests: XCTestCase {
         let scheduler = AlightAlertScheduler(center: spy)
         await scheduler.begin(journey: journey(), now: base)
         XCTAssertTrue(spy.added.isEmpty)
+    }
+
+    /// The launch sweep must clean up without ever raising the permission prompt — a
+    /// dialog at launch on the CI simulator would park over every later screenshot.
+    @MainActor
+    func testLaunchSweepRemovesEveryPendingAlightAlertWithoutPrompting() async {
+        let spy = SpyNotificationCenter()
+        spy.pending = ["alight-a", "alight-b"]
+        let scheduler = AlightAlertScheduler(center: spy)
+        await scheduler.sweepOrphansAtLaunch()
+        XCTAssertEqual(Set(spy.removed), ["alight-a", "alight-b"])
+        XCTAssertEqual(spy.authorizationRequests, 0)
+    }
+
+    @MainActor
+    func testLaunchSweepWithNothingPendingRemovesNothing() async {
+        let spy = SpyNotificationCenter()
+        let scheduler = AlightAlertScheduler(center: spy)
+        await scheduler.sweepOrphansAtLaunch()
+        XCTAssertTrue(spy.removed.isEmpty)
+        XCTAssertEqual(spy.authorizationRequests, 0)
     }
 
     @MainActor

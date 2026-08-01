@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct NextStopApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = SpikeSession()
     @Environment(\.scenePhase) private var scenePhase
 
@@ -33,9 +34,12 @@ struct RootView: View {
         // Settings sitting on top of the screen it was asked for.
         let requested = UserDefaults.standard.string(forKey: "initialScreen")
         requestedScreen = requested
-        // The options and journey screens need journeys to show, and CI has no API key.
+        // The options, journey and medium-detent screens need journeys to show, and CI
+        // has no API key. "medium" falls through to the Home branch at its default
+        // detent — the only way to photograph the sheet's resting medium geometry.
+        let demoScreens = ["options", "journey", "medium"]
         _model = StateObject(
-            wrappedValue: requested == "options" || requested == "journey" ? .demo() : AppModel()
+            wrappedValue: requested.map(demoScreens.contains) == true ? .demo() : AppModel()
         )
         let firstRun = requested == nil && KeychainStore.read() == nil
         _showingSettings = State(initialValue: requested == "settings" || firstRun)
@@ -85,9 +89,15 @@ struct RootView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
-                case .active: model.location.start()
-                case .background: model.location.stop()
-                default: break
+                case .active:
+                    model.location.start()
+                case .background:
+                    // Mid-journey the location stream IS the background hold; stopping
+                    // it would suspend the app and orphan the Live Activity on a
+                    // force-quit.
+                    if !model.isJourneyActive { model.location.stop() }
+                default:
+                    break
                 }
             }
         }

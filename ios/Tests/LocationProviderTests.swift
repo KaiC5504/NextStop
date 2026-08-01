@@ -54,6 +54,14 @@ final class LocationProviderTests: XCTestCase {
         XCTAssertNil(provider.headingAccuracy)
     }
 
+    func testCanHoldBackgroundRequiresAuthorization() {
+        XCTAssertTrue(LocationProvider.canHoldBackground(.authorizedWhenInUse))
+        XCTAssertTrue(LocationProvider.canHoldBackground(.authorizedAlways))
+        XCTAssertFalse(LocationProvider.canHoldBackground(.notDetermined))
+        XCTAssertFalse(LocationProvider.canHoldBackground(.denied))
+        XCTAssertFalse(LocationProvider.canHoldBackground(.restricted))
+    }
+
     func testFidelitySwitchesDesiredAccuracy() {
         let provider = LocationProvider()
         XCTAssertEqual(provider.desiredAccuracy, kCLLocationAccuracyHundredMeters)

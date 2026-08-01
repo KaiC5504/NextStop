@@ -66,12 +66,19 @@ final class AppModel: ObservableObject {
         self.alightAlerts = alightAlerts ?? AlightAlertScheduler()
         if !isDemo {
             Task { await journeyActivity.sweepOrphans() }
+            // Notifications get the same treatment as activities: anything pending at
+            // launch was armed by a previous life the terminate hook never saw.
+            Task { await self.alightAlerts.sweepOrphansAtLaunch() }
         }
     }
 
     var selectedJourney: Journey? {
         journeys.first { $0.id == selectedJourneyID }
     }
+
+    /// True from the journey commitment until arrival or teardown — the window during
+    /// which the app holds background location so the activity can die with a force-quit.
+    var isJourneyActive: Bool { activityStartedAt != nil }
 
     /// Chatswood Station, confirmed against stop_finder. Falling back to a fixed origin
     /// rather than refusing to plan: a journey from the wrong place is visible and
@@ -118,6 +125,7 @@ final class AppModel: ObservableObject {
         if let current = destination, current.id != stop.id {
             activityStartedAt = nil
             alightAlerts.cancelAll()
+            location.setBackgroundHold(false)
             await journeyActivity.end()
         }
         destination = stop
@@ -139,6 +147,7 @@ final class AppModel: ObservableObject {
         activityStartedAt = nil
         alightAlerts.cancelAll()
         Task { await journeyActivity.end() }
+        location.setBackgroundHold(false)
         location.set(fidelity: .ambient)
         destination = nil
         journeys = []
@@ -202,6 +211,9 @@ final class AppModel: ObservableObject {
             // The commitment moment doubles as the one contextual place to ask for
             // notification permission.
             Task { await alightAlerts.begin(journey: journey, now: Date()) }
+            // Re-opening the screen after arrival re-raises this transiently; the next
+            // tick derives .arrived and drops it again.
+            location.setBackgroundHold(true)
         }
         syncJourneyActivity(now: Date())
     }
@@ -218,6 +230,13 @@ final class AppModel: ObservableObject {
                   startedAt: startedAt, now: now
               )
         else { return }
+        if state.phase == .arrived {
+            // The journey is over: drop the anchor so ticks stop deriving, and the
+            // background hold with it. `startedAt` is already captured above.
+            activityStartedAt = nil
+            location.setBackgroundHold(false)
+            location.set(fidelity: .ambient)
+        }
         Task {
             if state.phase == .arrived {
                 alightAlerts.cancelAll()

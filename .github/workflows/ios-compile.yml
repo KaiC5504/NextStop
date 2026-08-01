@@ -104,7 +104,7 @@ jobs:
           # recent runner images; granting again now the app exists actually sticks.
           xcrun simctl privacy "$UDID" grant location com.kaichuan.nextstop || echo "post-install location grant failed"
           mkdir -p shots
-          for screen in home search settings layouts options journey; do
+          for screen in home search settings layouts options medium journey; do
             xcrun simctl terminate "$UDID" com.kaichuan.nextstop 2>/dev/null || true
             sleep 3
             echo "--- launching $screen ---"
