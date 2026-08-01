@@ -6,7 +6,7 @@ import Foundation
 /// are relative to launch so the metro leg is always mid-ride when the shot is taken.
 enum DemoJourney {
     static func journeys(around now: Date) -> [Journey] {
-        [metroJourney(now), busJourney(now), trainJourney(now)]
+        [metroJourney(now), nightJourney(now), busJourney(now), trainJourney(now)]
     }
 
     static let destination = StopSuggestion(
@@ -39,6 +39,61 @@ enum DemoJourney {
             ),
         ]
         return Journey(id: "demo-metro", legs: legs)
+    }
+
+    /// The badge-width torture test: five legs, a three-character route, and boarding
+    /// suffixes on every stop name — the shapes that broke the row layout on device.
+    private static func nightJourney(_ now: Date) -> Journey {
+        let planned = now.addingTimeInterval(12 * 60)
+        let estimated = planned.addingTimeInterval(180)
+        let trainNames = [
+            "Chatswood Station, Platform 2", "Artarmon Station, Platform 2",
+            "St Leonards Station, Platform 1", "North Sydney Station, Platform 3",
+            "Wynyard Station, Platform 16",
+        ]
+        let trainStops = rideStops(prefix: "demo-night-t1", names: trainNames, start: estimated, gaps: [3, 5, 8, 12])
+        let trainArrival = trainStops.last!.arrival!
+        let busStart = trainArrival.addingTimeInterval(6 * 60)
+        let busNames = [
+            "Wynyard, Carrington St, Stand E", "QVB, York St, Stand A",
+            "Railway Square, Stand K", "Newtown Station, Stand B",
+        ]
+        let busStops = rideStops(prefix: "demo-night-n40", names: busNames, start: busStart, gaps: [6, 12, 19])
+        let busArrival = busStops.last!.arrival!
+        let legs = [
+            walkLeg(
+                id: "demo-night-walk-in", to: "Chatswood Station",
+                departure: planned.addingTimeInterval(-6 * 60), seconds: 300,
+                from: (-33.7952, 151.1789), toCoord: (-33.7969, 151.1803)
+            ),
+            Leg(
+                id: "demo-night-t1", mode: .train, route: "T1", headsign: "Central via Chatswood",
+                originName: "Chatswood Station, Platform 2", destinationName: "Wynyard Station",
+                plannedDeparture: planned, estimatedDeparture: estimated,
+                plannedArrival: trainArrival.addingTimeInterval(-180), estimatedArrival: trainArrival,
+                hasRealtime: true, path: trainStops.map(\.coordinate), stops: trainStops,
+                durationSeconds: Int(trainArrival.timeIntervalSince(estimated))
+            ),
+            walkLeg(
+                id: "demo-night-transfer", to: "Carrington St",
+                departure: trainArrival.addingTimeInterval(60), seconds: 180,
+                from: (-33.8658, 151.2058), toCoord: (-33.8655, 151.2050)
+            ),
+            Leg(
+                id: "demo-night-n40", mode: .bus, route: "N40", headsign: "Blacktown",
+                originName: "Wynyard, Carrington St, Stand E", destinationName: "Newtown Station",
+                plannedDeparture: busStart, estimatedDeparture: busStart,
+                plannedArrival: busArrival, estimatedArrival: busArrival,
+                hasRealtime: true, path: busStops.map(\.coordinate), stops: busStops,
+                durationSeconds: Int(busArrival.timeIntervalSince(busStart))
+            ),
+            walkLeg(
+                id: "demo-night-walk-out", to: "The University of Sydney",
+                departure: busArrival.addingTimeInterval(60), seconds: 420,
+                from: (-33.8966, 151.1797), toCoord: (-33.8886, 151.1873)
+            ),
+        ]
+        return Journey(id: "demo-night", legs: legs)
     }
 
     /// Walk → 428 running three minutes late → walk.
@@ -103,14 +158,16 @@ enum DemoJourney {
         return Journey(id: "demo-train", legs: legs)
     }
 
+    // Two suffixed names on purpose: the journey screenshot has to prove that an
+    // intermediate renders cleaned and the alighting row shows its platform.
     private static let metroStations: [(String, Double, Double)] = [
         ("Chatswood", -33.7969, 151.1803),
-        ("Crows Nest", -33.8265, 151.2003),
+        ("Crows Nest, Platform 1", -33.8265, 151.2003),
         ("Victoria Cross", -33.8390, 151.2072),
         ("Barangaroo", -33.8630, 151.2015),
         ("Martin Place", -33.8679, 151.2100),
         ("Gadigal", -33.8760, 151.2085),
-        ("Central", -33.8832, 151.2065),
+        ("Central, Platform 26", -33.8832, 151.2065),
     ]
 
     /// Deliberately uneven gaps (minutes) so the tick marks and fill are visibly not

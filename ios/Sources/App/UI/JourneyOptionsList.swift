@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The vertical route list in the Home sheet: one row per alternative, Google style —
-/// leg sequence, clocks, then status · duration · walk.
+/// times with the big duration, the leg sequence, then the realtime status line.
 struct JourneyOptionsList: View {
     @EnvironmentObject private var model: AppModel
     let detent: SheetDetent
@@ -44,36 +44,7 @@ struct JourneyOptionsList: View {
             withAnimation(.snappy) { model.selectedJourneyID = journey.id }
             onOpen()
         } label: {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                HStack(spacing: Theme.Spacing.s) {
-                    legSequence(journey)
-                    Spacer(minLength: Theme.Spacing.s)
-                    if let departure = journey.departure, let arrival = journey.arrival {
-                        Text("\(TimeDisplay.clock.string(from: departure)) → \(TimeDisplay.clock.string(from: arrival))")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.Colors.textPrimary)
-                            .lineLimit(1)
-                    }
-                }
-                HStack(spacing: Theme.Spacing.xs) {
-                    if let status = journey.transitLegs.first.map({ DepartureStatus(leg: $0) }) {
-                        Text(status.label)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(status.tint)
-                    }
-                    if let duration = TimeDisplay.durationLabel(seconds: journey.duration.map(Int.init)) {
-                        Text("· \(duration)")
-                            .font(.caption)
-                            .foregroundStyle(Theme.Colors.textSecondary)
-                    }
-                    if let walk = TimeDisplay.durationLabel(seconds: journey.totalWalkSeconds) {
-                        Text("· \(walk) walk")
-                            .font(.caption)
-                            .foregroundStyle(Theme.Colors.textSecondary)
-                    }
-                    Spacer(minLength: 0)
-                }
-            }
+            JourneyOptionRow(journey: journey)
             .padding(.vertical, Theme.Spacing.s + Theme.Spacing.xs)
             .padding(.horizontal, Theme.Spacing.s)
             .background(
@@ -88,24 +59,5 @@ struct JourneyOptionsList: View {
         }
         .buttonStyle(.plain)
         .animation(.snappy, value: selected)
-    }
-
-    private func legSequence(_ journey: Journey) -> some View {
-        HStack(spacing: Theme.Spacing.xs) {
-            ForEach(Array(journey.legs.enumerated()), id: \.element.id) { index, leg in
-                if index > 0 {
-                    Image(systemName: "chevron.compact.right")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                }
-                if leg.mode.isWalking {
-                    Image(systemName: "figure.walk")
-                        .font(.caption)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                } else {
-                    JourneyRouteCapsule(text: leg.route ?? leg.mode.displayName, tint: leg.mode.tint)
-                }
-            }
-        }
     }
 }

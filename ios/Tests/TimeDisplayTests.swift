@@ -29,6 +29,32 @@ final class TimeDisplayTests: XCTestCase {
         XCTAssertEqual(TimeDisplay.countdownLabel(to: anchor.addingTimeInterval(14.6 * 60), now: anchor), "in 15 min")
     }
 
+    func testClockRangeCollapsesASharedMeridiem() {
+        let from = Date(timeIntervalSince1970: 1_767_580_200) // 1:30 pm AEDT
+        XCTAssertEqual(TimeDisplay.clockRange(from: from, to: from.addingTimeInterval(43 * 60)), "1:30 – 2:13 pm")
+    }
+
+    func testClockRangeKeepsDistinctMeridiems() {
+        let to = Date(timeIntervalSince1970: 1_767_580_200).addingTimeInterval(-70 * 60) // 12:20 pm
+        let from = to.addingTimeInterval(-22 * 60) // 11:58 am
+        XCTAssertEqual(TimeDisplay.clockRange(from: from, to: to), "11:58 am – 12:20 pm")
+    }
+
+    func testLongDurationLabelBreaksAtAnHour() {
+        XCTAssertEqual(TimeDisplay.longDurationLabel(seconds: 43 * 60), "43 min")
+        XCTAssertEqual(TimeDisplay.longDurationLabel(seconds: 3_600), "1 hr")
+        XCTAssertEqual(TimeDisplay.longDurationLabel(seconds: 75 * 60), "1 hr 15 min")
+        XCTAssertNil(TimeDisplay.longDurationLabel(seconds: nil))
+        XCTAssertNil(TimeDisplay.longDurationLabel(seconds: 0))
+    }
+
+    func testWalkBadgeMinutesRoundsAndHides() {
+        XCTAssertEqual(TimeDisplay.walkBadgeMinutes(seconds: 290), "5")
+        XCTAssertEqual(TimeDisplay.walkBadgeMinutes(seconds: 20), "1")
+        XCTAssertNil(TimeDisplay.walkBadgeMinutes(seconds: nil))
+        XCTAssertNil(TimeDisplay.walkBadgeMinutes(seconds: 0))
+    }
+
     func testClockIsPinnedToSydney() {
         // 2026-01-05 02:30 UTC == 1:30 pm AEDT.
         let instant = Date(timeIntervalSince1970: 1_767_580_200)
