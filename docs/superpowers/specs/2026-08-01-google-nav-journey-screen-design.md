@@ -49,9 +49,11 @@ map visible around it — instead of an edge-to-edge tinted slab.
   waiting/riding, green arrived) at the existing corner-radius idiom
   (`Theme.Radius`).
 - **Then chip:** a small left-aligned chip below the card, same tint family,
-  showing `ContentState.nextLegLine` ("Then T1 · 8:12 am"). `nextLegLine` is
-  already derived for walking and waiting phases and is nil otherwise, so the
-  chip hides itself when riding/arrived or when there is no next transit leg.
+  showing `ContentState.nextLegLine` ("Then T1 · 8:12 am"). The chip renders
+  only during the walking phase — while waiting, `nextLegLine` names the same
+  service as the "Board…" title, so it would duplicate the banner; the Live
+  Activity gates its next-leg line to walking for the same reason. It also
+  hides when there is no next transit leg.
 - `JourneyBannerModel` gains the chip line so the mapping stays pure and
   testable; phase→title/subtitle/symbol/tint logic is otherwise unchanged.
 

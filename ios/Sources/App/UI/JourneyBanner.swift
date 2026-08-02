@@ -7,6 +7,9 @@ struct JourneyBannerModel: Equatable {
     let subtitle: String?
     let symbolName: String
     let tint: Color
+    /// The Google "Then ↱" chip: what follows the current leg. Walking phase only —
+    /// while waiting, nextLegLine names the same service the title already boards.
+    let thenLine: String?
 
     static func make(state: JourneyActivityAttributes.ContentState, now: Date) -> JourneyBannerModel {
         switch state.phase {
@@ -19,7 +22,8 @@ struct JourneyBannerModel: Equatable {
                 symbolName: "figure.walk",
                 // Walk-grey is illegible as a banner surface; the puck blue reads as
                 // "you, moving" everywhere else in the app.
-                tint: Theme.Colors.userPuck
+                tint: Theme.Colors.userPuck,
+                thenLine: state.nextLegLine
             )
         case .waiting:
             let route = state.routeBadge ?? state.mode.displayName
@@ -32,7 +36,8 @@ struct JourneyBannerModel: Equatable {
                 title: "Board \(route)\(headsign)",
                 subtitle: parts.isEmpty ? nil : parts.joined(separator: " · "),
                 symbolName: state.mode.symbolName,
-                tint: state.mode.tint
+                tint: state.mode.tint,
+                thenLine: nil
             )
         case .riding:
             var subtitle = state.status.label
@@ -43,14 +48,16 @@ struct JourneyBannerModel: Equatable {
                 title: "Alight at \(StopName.short(state.place))",
                 subtitle: subtitle,
                 symbolName: state.mode.symbolName,
-                tint: state.mode.tint
+                tint: state.mode.tint,
+                thenLine: nil
             )
         case .arrived:
             return JourneyBannerModel(
                 title: "Arrived",
                 subtitle: state.place,
                 symbolName: "checkmark.circle.fill",
-                tint: Theme.Colors.onTime
+                tint: Theme.Colors.onTime,
+                thenLine: nil
             )
         }
     }

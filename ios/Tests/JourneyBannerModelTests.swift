@@ -92,4 +92,26 @@ final class JourneyBannerModelTests: XCTestCase {
         )
         XCTAssertEqual(model.subtitle, "now")
     }
+
+    func testWalkingCarriesTheThenChip() {
+        let model = JourneyBannerModel.make(
+            state: state(phase: .walking, mode: .walk, place: "Chatswood Station", nextLegLine: "Then T1 · 8:12 am"),
+            now: base
+        )
+        XCTAssertEqual(model.thenLine, "Then T1 · 8:12 am")
+    }
+
+    func testWaitingSuppressesTheThenChip() {
+        // While waiting the banner already says "Board T1…" — the chip would repeat it.
+        let model = JourneyBannerModel.make(
+            state: state(phase: .waiting, place: "Chatswood, Platform 2", nextLegLine: "Then T1 · 8:12 am"),
+            now: base
+        )
+        XCTAssertNil(model.thenLine)
+    }
+
+    func testRidingAndArrivedHaveNoThenChip() {
+        XCTAssertNil(JourneyBannerModel.make(state: state(phase: .riding, place: "Central"), now: base).thenLine)
+        XCTAssertNil(JourneyBannerModel.make(state: state(phase: .arrived, place: "Central"), now: base).thenLine)
+    }
 }
