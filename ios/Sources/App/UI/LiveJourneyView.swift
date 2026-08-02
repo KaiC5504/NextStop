@@ -61,7 +61,8 @@ struct LiveJourneyView: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { topBanner }
-        // The banner replaces the navigation bar — its back chevron is the way home.
+        // No navigation bar: swipe-back (SwipeBackEnabler) and the bar's Exit pill
+        // are the ways home.
         .toolbar(.hidden, for: .navigationBar)
         // A leg transition is the one moment worth a physical nudge mid-journey.
         .sensoryFeedback(.impact(weight: .medium), trigger: model.selectedJourney?.activeLeg(at: now)?.id)
@@ -87,7 +88,7 @@ struct LiveJourneyView: View {
                journey: journey, destinationName: destination.name,
                startedAt: appearedAt, now: now
            ) {
-            JourneyBannerView(model: .make(state: state, now: now), onBack: { dismiss() })
+            JourneyBannerView(model: .make(state: state, now: now))
         }
     }
 

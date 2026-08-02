@@ -65,40 +65,50 @@ struct JourneyBannerModel: Equatable {
 
 struct JourneyBannerView: View {
     let model: JourneyBannerModel
-    var onBack: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            if let onBack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 36, height: 36)
-                        .background(Circle().fill(.white.opacity(0.18)))
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            HStack(spacing: Theme.Spacing.s + Theme.Spacing.xs) {
+                Image(systemName: model.symbolName)
+                    .font(.system(size: 20, weight: .bold))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(model.title)
+                        .font(.headline)
+                        .lineLimit(2)
+                    if let subtitle = model.subtitle {
+                        Text(subtitle)
+                            .font(.footnote.weight(.medium))
+                            .opacity(0.85)
+                            .lineLimit(1)
+                    }
                 }
-                .buttonStyle(.plain)
+                Spacer(minLength: 0)
             }
-            Image(systemName: model.symbolName)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.white)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.title)
-                    .font(.title3.weight(.bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, Theme.Spacing.s + Theme.Spacing.xs)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(tintCard(Theme.Radius.banner))
+
+            if let thenLine = model.thenLine {
+                Text(thenLine)
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(.white)
-                    .lineLimit(2)
-                if let subtitle = model.subtitle {
-                    Text(subtitle)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .lineLimit(1)
-                }
+                    .padding(.horizontal, Theme.Spacing.m)
+                    .padding(.vertical, Theme.Spacing.s)
+                    .background(tintCard(Theme.Radius.pill))
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
-            Spacer(minLength: 0)
         }
-        .padding(Theme.Spacing.m)
+        .padding(.horizontal, Theme.Spacing.m)
+        .padding(.top, Theme.Spacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(model.tint.ignoresSafeArea(edges: .top))
         .animation(.snappy, value: model)
+    }
+
+    private func tintCard(_ radius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .fill(model.tint)
+            .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
     }
 }
