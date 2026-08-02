@@ -64,6 +64,7 @@ struct LiveJourneyView: View {
                 )
             }
         }
+        .background(SwipeBackEnabler().allowsHitTesting(false))
         .safeAreaInset(edge: .top, spacing: 0) { topBanner }
         // No navigation bar: swipe-back (SwipeBackEnabler) and the bar's Exit pill
         // are the ways home.
