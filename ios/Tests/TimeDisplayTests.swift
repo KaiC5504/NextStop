@@ -60,4 +60,19 @@ final class TimeDisplayTests: XCTestCase {
         let instant = Date(timeIntervalSince1970: 1_767_580_200)
         XCTAssertEqual(TimeDisplay.clock.string(from: instant), "1:30 pm")
     }
+
+    func testRemainingLabelCountsDownToArrival() {
+        XCTAssertEqual(TimeDisplay.remainingLabel(until: anchor.addingTimeInterval(43 * 60), now: anchor), "43 min")
+        XCTAssertEqual(TimeDisplay.remainingLabel(until: anchor.addingTimeInterval(75 * 60), now: anchor), "1 hr 15 min")
+        XCTAssertEqual(TimeDisplay.remainingLabel(until: anchor.addingTimeInterval(20), now: anchor), "1 min")
+    }
+
+    func testRemainingLabelReadsArrivedOncePassed() {
+        XCTAssertEqual(TimeDisplay.remainingLabel(until: anchor, now: anchor), "Arrived")
+        XCTAssertEqual(TimeDisplay.remainingLabel(until: anchor.addingTimeInterval(-300), now: anchor), "Arrived")
+    }
+
+    func testRemainingLabelHidesWithoutAnArrival() {
+        XCTAssertNil(TimeDisplay.remainingLabel(until: nil, now: anchor))
+    }
 }
