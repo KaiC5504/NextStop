@@ -226,13 +226,14 @@ enum DemoJourney {
 
 extension AppModel {
     /// A model pre-loaded with the demo journeys and nothing live behind it — no
-    /// network, no ActivityKit — for `-initialScreen options` / `journey` screenshots.
-    static func demo() -> AppModel {
+    /// network, no ActivityKit — for `-initialScreen options` / `journey` / `walk`
+    /// screenshots. `journeyID` picks which demo is live; the metro one otherwise.
+    static func demo(selecting journeyID: String? = nil) -> AppModel {
         let model = AppModel(isDemo: true)
         let journeys = DemoJourney.journeys(around: Date())
         model.destination = DemoJourney.destination
         model.journeys = journeys
-        model.selectedJourneyID = journeys.first?.id
+        model.selectedJourneyID = journeyID ?? journeys.first?.id
         model.phase = .ready
         return model
     }
