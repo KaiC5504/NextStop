@@ -56,6 +56,10 @@ struct LiveJourneyView: View {
                             }
                             .padding(.horizontal, Theme.Spacing.m)
                         }
+                        // The peek cut sits at the safe-area line while the card keeps
+                        // sliding through the home-indicator zone below it; without this
+                        // gap the first leg row bleeds into that zone at rest.
+                        .padding(.top, Theme.Spacing.xl)
                         .scrollIndicators(.hidden)
                         // Sheet drags at medium, list scrolls at large — same split as Home.
                         .scrollDisabled(sheetDetent != .large)
@@ -135,7 +139,6 @@ struct LiveJourneyView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.bottom, Theme.Spacing.s)
     }
 
     private func barDetail(_ journey: Journey) -> String {

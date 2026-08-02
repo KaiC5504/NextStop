@@ -129,7 +129,7 @@ struct BottomSheet<Peek: View, More: View>: View {
 
     private var content: some View {
         VStack(spacing: 0) {
-            VStack(spacing: Theme.Spacing.m) {
+            VStack(spacing: Theme.Spacing.s) {
                 Capsule()
                     .fill(Theme.Colors.stroke)
                     .frame(width: 36, height: 5)
@@ -137,7 +137,7 @@ struct BottomSheet<Peek: View, More: View>: View {
                 peek()
             }
             .padding(.horizontal, Theme.Spacing.m)
-            .padding(.bottom, Theme.Spacing.m)
+            .padding(.bottom, Theme.Spacing.s)
             .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { height in
                 peekHeight = height
                 publishResting()
