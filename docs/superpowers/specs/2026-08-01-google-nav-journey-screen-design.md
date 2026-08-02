@@ -101,11 +101,13 @@ shared.
 
 ### 4. Swipe-back
 
-A small `UINavigationController` extension re-enables
-`interactivePopGestureRecognizer` while the navigation bar is hidden — the
-standard delegate workaround, guarded by `viewControllers.count > 1` so the
-root (Home) never pops. App-wide by nature; only pushed screens are affected,
-and the journey screen is currently the only push.
+A scoped shim (`SwipeBackEnabler`, a zero-size `UIViewControllerRepresentable`
+attached to the journey screen) re-enables `interactivePopGestureRecognizer`
+while the navigation bar is hidden — chosen over the common app-wide
+`UINavigationController`-category swizzle so Home keeps stock behaviour and
+the original delegate is restored on teardown. It refuses the gesture at the
+stack root (`viewControllers.count > 1`) and while a push/pop transition is
+in flight (`transitionCoordinator == nil`), matching UIKit's own refusals.
 
 ## Error handling
 
