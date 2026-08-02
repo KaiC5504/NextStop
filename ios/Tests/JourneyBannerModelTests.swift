@@ -111,7 +111,11 @@ final class JourneyBannerModelTests: XCTestCase {
     }
 
     func testRidingAndArrivedHaveNoThenChip() {
-        XCTAssertNil(JourneyBannerModel.make(state: state(phase: .riding, place: "Central"), now: base).thenLine)
-        XCTAssertNil(JourneyBannerModel.make(state: state(phase: .arrived, place: "Central"), now: base).thenLine)
+        XCTAssertNil(JourneyBannerModel.make(
+            state: state(phase: .riding, place: "Central", nextLegLine: "Then T1 · 8:12 am"), now: base
+        ).thenLine)
+        XCTAssertNil(JourneyBannerModel.make(
+            state: state(phase: .arrived, place: "Central", nextLegLine: "Then T1 · 8:12 am"), now: base
+        ).thenLine)
     }
 }
