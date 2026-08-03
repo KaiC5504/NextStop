@@ -172,6 +172,9 @@ final class AppModelTests: XCTestCase {
     /// The background hold exists exactly while a journey is active. The spy scheduler
     /// is not optional: startJourneyActivity reaches the notification-permission path,
     /// and the real center's dialog would park over every CI screenshot.
+    /// The fixture's journey must lie in the future — once its arrival passes,
+    /// startJourneyActivity's own sync derives .arrived and drops the hold before the
+    /// assertion runs. It expired once on 2026-08-03; the timestamps now sit in 2036.
     func testJourneyLifecycleRaisesAndDropsTheBackgroundHold() async {
         let spy = SpyNotificationCenter()
         let model = AppModel(
