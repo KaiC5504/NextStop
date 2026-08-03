@@ -34,12 +34,14 @@ struct RootView: View {
         // Settings sitting on top of the screen it was asked for.
         let requested = UserDefaults.standard.string(forKey: "initialScreen")
         requestedScreen = requested
-        // The options, journey and medium-detent screens need journeys to show, and CI
-        // has no API key. "medium" falls through to the Home branch at its default
+        // The options, journey, medium-detent and walk screens need journeys to show,
+        // and CI has no API key. "medium" falls through to the Home branch at its default
         // detent — the only way to photograph the sheet's resting medium geometry.
-        let demoScreens = ["options", "journey", "medium"]
+        let demoScreens = ["options", "journey", "medium", "walk"]
         _model = StateObject(
-            wrappedValue: requested.map(demoScreens.contains) == true ? .demo() : AppModel()
+            wrappedValue: requested.map(demoScreens.contains) == true
+                ? .demo(selecting: requested == "walk" ? "demo-night" : nil)
+                : AppModel()
         )
         let firstRun = requested == nil && KeychainStore.read() == nil
         _showingSettings = State(initialValue: requested == "settings" || firstRun)
@@ -51,7 +53,7 @@ struct RootView: View {
             // Developer, and this screen is the only pre-device look at the layouts.
             ActivityHarnessView()
                 .preferredColorScheme(.dark)
-        } else if requestedScreen == "journey" {
+        } else if requestedScreen == "journey" || requestedScreen == "walk" {
             NavigationStack {
                 LiveJourneyView()
                     .background(Theme.Colors.background)
@@ -61,6 +63,9 @@ struct RootView: View {
             .environmentObject(model.location)
             .preferredColorScheme(.dark)
             .tint(Theme.Colors.textPrimary)
+            // The journey screen navigates from the simulator's simulated fix; Home
+            // normally starts this stream, but CI jumps straight here.
+            .onAppear { model.location.start() }
         } else {
             NavigationStack {
                 HomeView(showingSettings: $showingSettings)

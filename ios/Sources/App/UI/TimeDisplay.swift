@@ -53,4 +53,13 @@ enum TimeDisplay {
         let minutes = Int((seconds / 60).rounded())
         return minutes <= 0 ? "now" : "in \(minutes) min"
     }
+
+    /// The journey bar's big number: time left until arrival. Past arrival it reads
+    /// "Arrived" rather than counting negative or vanishing under the Exit button.
+    static func remainingLabel(until arrival: Date?, now: Date) -> String? {
+        guard let arrival else { return nil }
+        let seconds = Int(arrival.timeIntervalSince(now))
+        guard seconds > 0 else { return "Arrived" }
+        return longDurationLabel(seconds: seconds)
+    }
 }

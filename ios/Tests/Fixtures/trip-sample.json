@@ -48,9 +48,9 @@
               ],
               "niveau": 0
             },
-            "departureTimeBaseTimetable": "2026-08-02T22:04:06Z",
-            "departureTimePlanned": "2026-08-02T22:04:06Z",
-            "departureTimeEstimated": "2026-08-02T22:04:06Z",
+            "departureTimeBaseTimetable": "2036-08-02T22:04:06Z",
+            "departureTimePlanned": "2036-08-02T22:04:06Z",
+            "departureTimeEstimated": "2036-08-02T22:04:06Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "0",
@@ -112,9 +112,9 @@
               ],
               "niveau": 0
             },
-            "arrivalTimeBaseTimetable": "2026-08-02T22:18:30Z",
-            "arrivalTimePlanned": "2026-08-02T22:18:30Z",
-            "arrivalTimeEstimated": "2026-08-02T22:18:30Z",
+            "arrivalTimeBaseTimetable": "2036-08-02T22:18:30Z",
+            "arrivalTimePlanned": "2036-08-02T22:18:30Z",
+            "arrivalTimeEstimated": "2036-08-02T22:18:30Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "-3",
@@ -236,7 +236,7 @@
                   }
                 ]
               },
-              "departureTimePlanned": "2026-08-02T22:04:06Z",
+              "departureTimePlanned": "2036-08-02T22:04:06Z",
               "modes": [
                 1,
                 2,
@@ -298,8 +298,8 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:07:12Z",
-              "departureTimePlanned": "2026-08-02T22:07:42Z",
+              "arrivalTimePlanned": "2036-08-02T22:07:12Z",
+              "departureTimePlanned": "2036-08-02T22:07:42Z",
               "modes": [
                 2,
                 5,
@@ -360,8 +360,8 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:09:24Z",
-              "departureTimePlanned": "2026-08-02T22:10:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:09:24Z",
+              "departureTimePlanned": "2036-08-02T22:10:00Z",
               "modes": [
                 2,
                 5,
@@ -422,8 +422,8 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:12:30Z",
-              "departureTimePlanned": "2026-08-02T22:13:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:12:30Z",
+              "departureTimePlanned": "2036-08-02T22:13:00Z",
               "modes": [
                 2,
                 5
@@ -483,8 +483,8 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:14:42Z",
-              "departureTimePlanned": "2026-08-02T22:15:30Z",
+              "arrivalTimePlanned": "2036-08-02T22:14:42Z",
+              "departureTimePlanned": "2036-08-02T22:15:30Z",
               "modes": [
                 1,
                 2
@@ -544,8 +544,8 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:16:36Z",
-              "departureTimePlanned": "2026-08-02T22:17:06Z",
+              "arrivalTimePlanned": "2036-08-02T22:16:36Z",
+              "departureTimePlanned": "2036-08-02T22:17:06Z",
               "modes": [
                 2
               ]
@@ -604,7 +604,7 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:18:30Z",
+              "arrivalTimePlanned": "2036-08-02T22:18:30Z",
               "modes": [
                 1,
                 2,
@@ -1707,9 +1707,9 @@
               ],
               "niveau": 0
             },
-            "departureTimeBaseTimetable": "2026-08-02T22:19:00Z",
-            "departureTimePlanned": "2026-08-02T22:19:00Z",
-            "departureTimeEstimated": "2026-08-02T22:19:00Z",
+            "departureTimeBaseTimetable": "2036-08-02T22:19:00Z",
+            "departureTimePlanned": "2036-08-02T22:19:00Z",
+            "departureTimeEstimated": "2036-08-02T22:19:00Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "-3",
@@ -1773,9 +1773,9 @@
               ],
               "niveau": 0
             },
-            "arrivalTimeBaseTimetable": "2026-08-02T22:28:00Z",
-            "arrivalTimePlanned": "2026-08-02T22:28:00Z",
-            "arrivalTimeEstimated": "2026-08-02T22:28:00Z",
+            "arrivalTimeBaseTimetable": "2036-08-02T22:28:00Z",
+            "arrivalTimePlanned": "2036-08-02T22:28:00Z",
+            "arrivalTimeEstimated": "2036-08-02T22:28:00Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "0",
@@ -1866,7 +1866,7 @@
                   }
                 ]
               },
-              "departureTimePlanned": "2026-08-02T22:19:00Z",
+              "departureTimePlanned": "2036-08-02T22:19:00Z",
               "modes": [
                 1,
                 2,
@@ -1926,7 +1926,7 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:28:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:28:00Z",
               "modes": [
                 5,
                 11
@@ -3045,9 +3045,9 @@
               ],
               "niveau": 0
             },
-            "departureTimeBaseTimetable": "2026-08-02T22:28:00Z",
-            "departureTimePlanned": "2026-08-02T22:28:00Z",
-            "departureTimeEstimated": "2026-08-02T22:28:00Z",
+            "departureTimeBaseTimetable": "2036-08-02T22:28:00Z",
+            "departureTimePlanned": "2036-08-02T22:28:00Z",
+            "departureTimeEstimated": "2036-08-02T22:28:00Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "0",
@@ -3106,9 +3106,9 @@
               ],
               "niveau": 0
             },
-            "arrivalTimeBaseTimetable": "2026-08-02T22:36:00Z",
-            "arrivalTimePlanned": "2026-08-02T22:36:00Z",
-            "arrivalTimeEstimated": "2026-08-02T22:36:00Z",
+            "arrivalTimeBaseTimetable": "2036-08-02T22:36:00Z",
+            "arrivalTimePlanned": "2036-08-02T22:36:00Z",
+            "arrivalTimeEstimated": "2036-08-02T22:36:00Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "0",
@@ -3212,7 +3212,7 @@
                   }
                 ]
               },
-              "departureTimePlanned": "2026-08-02T22:28:00Z",
+              "departureTimePlanned": "2036-08-02T22:28:00Z",
               "modes": [
                 5,
                 11
@@ -3260,8 +3260,8 @@
                 "platformName": "Broadway at Buckland St",
                 "plannedPlatformName": "Broadway at Buckland St"
               },
-              "arrivalTimePlanned": "2026-08-02T22:31:00Z",
-              "departureTimePlanned": "2026-08-02T22:31:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:31:00Z",
+              "departureTimePlanned": "2036-08-02T22:31:00Z",
               "modes": [
                 5,
                 11
@@ -3309,8 +3309,8 @@
                 "platformName": "City Rd opp Victoria Park",
                 "plannedPlatformName": "City Rd opp Victoria Park"
               },
-              "arrivalTimePlanned": "2026-08-02T22:33:00Z",
-              "departureTimePlanned": "2026-08-02T22:33:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:33:00Z",
+              "departureTimePlanned": "2036-08-02T22:33:00Z",
               "modes": [
                 5,
                 11
@@ -3358,8 +3358,8 @@
                 "platformName": "City Rd after Cleveland St",
                 "plannedPlatformName": "City Rd after Cleveland St"
               },
-              "arrivalTimePlanned": "2026-08-02T22:35:00Z",
-              "departureTimePlanned": "2026-08-02T22:35:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:35:00Z",
+              "departureTimePlanned": "2036-08-02T22:35:00Z",
               "modes": [
                 5,
                 11
@@ -3407,7 +3407,7 @@
                 "platformName": "University of Sydney, City Rd",
                 "plannedPlatformName": "University of Sydney, City Rd"
               },
-              "arrivalTimePlanned": "2026-08-02T22:36:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:36:00Z",
               "modes": [
                 5,
                 11
@@ -3694,9 +3694,9 @@
               ],
               "niveau": 0
             },
-            "departureTimeBaseTimetable": "2026-08-02T22:07:48Z",
-            "departureTimePlanned": "2026-08-02T22:07:48Z",
-            "departureTimeEstimated": "2026-08-02T22:07:48Z",
+            "departureTimeBaseTimetable": "2036-08-02T22:07:48Z",
+            "departureTimePlanned": "2036-08-02T22:07:48Z",
+            "departureTimeEstimated": "2036-08-02T22:07:48Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "0",
@@ -3758,9 +3758,9 @@
               ],
               "niveau": 0
             },
-            "arrivalTimeBaseTimetable": "2026-08-02T22:22:18Z",
-            "arrivalTimePlanned": "2026-08-02T22:22:18Z",
-            "arrivalTimeEstimated": "2026-08-02T22:22:18Z",
+            "arrivalTimeBaseTimetable": "2036-08-02T22:22:18Z",
+            "arrivalTimePlanned": "2036-08-02T22:22:18Z",
+            "arrivalTimeEstimated": "2036-08-02T22:22:18Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "-3",
@@ -3882,7 +3882,7 @@
                   }
                 ]
               },
-              "departureTimePlanned": "2026-08-02T22:07:48Z",
+              "departureTimePlanned": "2036-08-02T22:07:48Z",
               "modes": [
                 1,
                 2,
@@ -3944,8 +3944,8 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:11:00Z",
-              "departureTimePlanned": "2026-08-02T22:11:30Z",
+              "arrivalTimePlanned": "2036-08-02T22:11:00Z",
+              "departureTimePlanned": "2036-08-02T22:11:30Z",
               "modes": [
                 2,
                 5,
@@ -4006,8 +4006,8 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:13:06Z",
-              "departureTimePlanned": "2026-08-02T22:13:48Z",
+              "arrivalTimePlanned": "2036-08-02T22:13:06Z",
+              "departureTimePlanned": "2036-08-02T22:13:48Z",
               "modes": [
                 2,
                 5,
@@ -4068,8 +4068,8 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:16:18Z",
-              "departureTimePlanned": "2026-08-02T22:16:48Z",
+              "arrivalTimePlanned": "2036-08-02T22:16:18Z",
+              "departureTimePlanned": "2036-08-02T22:16:48Z",
               "modes": [
                 2,
                 5
@@ -4129,8 +4129,8 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:18:30Z",
-              "departureTimePlanned": "2026-08-02T22:19:18Z",
+              "arrivalTimePlanned": "2036-08-02T22:18:30Z",
+              "departureTimePlanned": "2036-08-02T22:19:18Z",
               "modes": [
                 1,
                 2
@@ -4190,8 +4190,8 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:20:18Z",
-              "departureTimePlanned": "2026-08-02T22:20:48Z",
+              "arrivalTimePlanned": "2036-08-02T22:20:18Z",
+              "departureTimePlanned": "2036-08-02T22:20:48Z",
               "modes": [
                 2
               ]
@@ -4250,7 +4250,7 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:22:18Z",
+              "arrivalTimePlanned": "2036-08-02T22:22:18Z",
               "modes": [
                 1,
                 2,
@@ -5353,9 +5353,9 @@
               ],
               "niveau": 0
             },
-            "departureTimeBaseTimetable": "2026-08-02T22:22:18Z",
-            "departureTimePlanned": "2026-08-02T22:22:18Z",
-            "departureTimeEstimated": "2026-08-02T22:22:18Z",
+            "departureTimeBaseTimetable": "2036-08-02T22:22:18Z",
+            "departureTimePlanned": "2036-08-02T22:22:18Z",
+            "departureTimeEstimated": "2036-08-02T22:22:18Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "-3",
@@ -5419,9 +5419,9 @@
               ],
               "niveau": 0
             },
-            "arrivalTimeBaseTimetable": "2026-08-02T22:31:18Z",
-            "arrivalTimePlanned": "2026-08-02T22:31:18Z",
-            "arrivalTimeEstimated": "2026-08-02T22:31:18Z",
+            "arrivalTimeBaseTimetable": "2036-08-02T22:31:18Z",
+            "arrivalTimePlanned": "2036-08-02T22:31:18Z",
+            "arrivalTimeEstimated": "2036-08-02T22:31:18Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "0",
@@ -5512,7 +5512,7 @@
                   }
                 ]
               },
-              "departureTimePlanned": "2026-08-02T22:22:18Z",
+              "departureTimePlanned": "2036-08-02T22:22:18Z",
               "modes": [
                 1,
                 2,
@@ -5572,7 +5572,7 @@
                   }
                 ]
               },
-              "arrivalTimePlanned": "2026-08-02T22:31:18Z",
+              "arrivalTimePlanned": "2036-08-02T22:31:18Z",
               "modes": [
                 5,
                 11
@@ -6691,9 +6691,9 @@
               ],
               "niveau": 0
             },
-            "departureTimeBaseTimetable": "2026-08-02T22:33:00Z",
-            "departureTimePlanned": "2026-08-02T22:33:00Z",
-            "departureTimeEstimated": "2026-08-02T22:33:00Z",
+            "departureTimeBaseTimetable": "2036-08-02T22:33:00Z",
+            "departureTimePlanned": "2036-08-02T22:33:00Z",
+            "departureTimeEstimated": "2036-08-02T22:33:00Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "0",
@@ -6752,9 +6752,9 @@
               ],
               "niveau": 0
             },
-            "arrivalTimeBaseTimetable": "2026-08-02T22:41:00Z",
-            "arrivalTimePlanned": "2026-08-02T22:41:00Z",
-            "arrivalTimeEstimated": "2026-08-02T22:41:00Z",
+            "arrivalTimeBaseTimetable": "2036-08-02T22:41:00Z",
+            "arrivalTimePlanned": "2036-08-02T22:41:00Z",
+            "arrivalTimeEstimated": "2036-08-02T22:41:00Z",
             "properties": {
               "WheelchairAccess": "true",
               "AREA_NIVEAU_DIVA": "0",
@@ -6858,7 +6858,7 @@
                   }
                 ]
               },
-              "departureTimePlanned": "2026-08-02T22:33:00Z",
+              "departureTimePlanned": "2036-08-02T22:33:00Z",
               "modes": [
                 5,
                 11
@@ -6906,8 +6906,8 @@
                 "platformName": "Broadway at Buckland St",
                 "plannedPlatformName": "Broadway at Buckland St"
               },
-              "arrivalTimePlanned": "2026-08-02T22:36:00Z",
-              "departureTimePlanned": "2026-08-02T22:36:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:36:00Z",
+              "departureTimePlanned": "2036-08-02T22:36:00Z",
               "modes": [
                 5,
                 11
@@ -6955,8 +6955,8 @@
                 "platformName": "City Rd opp Victoria Park",
                 "plannedPlatformName": "City Rd opp Victoria Park"
               },
-              "arrivalTimePlanned": "2026-08-02T22:38:00Z",
-              "departureTimePlanned": "2026-08-02T22:38:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:38:00Z",
+              "departureTimePlanned": "2036-08-02T22:38:00Z",
               "modes": [
                 5,
                 11
@@ -7004,8 +7004,8 @@
                 "platformName": "City Rd after Cleveland St",
                 "plannedPlatformName": "City Rd after Cleveland St"
               },
-              "arrivalTimePlanned": "2026-08-02T22:40:00Z",
-              "departureTimePlanned": "2026-08-02T22:40:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:40:00Z",
+              "departureTimePlanned": "2036-08-02T22:40:00Z",
               "modes": [
                 5,
                 11
@@ -7053,7 +7053,7 @@
                 "platformName": "University of Sydney, City Rd",
                 "plannedPlatformName": "University of Sydney, City Rd"
               },
-              "arrivalTimePlanned": "2026-08-02T22:41:00Z",
+              "arrivalTimePlanned": "2036-08-02T22:41:00Z",
               "modes": [
                 5,
                 11

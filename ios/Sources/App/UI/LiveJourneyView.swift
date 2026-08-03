@@ -9,10 +9,12 @@ struct LiveJourneyView: View {
     @State private var now = Date()
     @State private var lastRefresh = Date()
     @State private var bottomContentHeight: CGFloat = 0
-    // The journey screenshot starts at .large: CI cannot drag the sheet up.
+    // Peek by default — Google's compact bar; the journey screenshot starts at
+    // .large because CI cannot drag the sheet up.
     @State private var sheetDetent: SheetDetent =
-        UserDefaults.standard.string(forKey: "initialScreen") == "journey" ? .large : .medium
+        UserDefaults.standard.string(forKey: "initialScreen") == "journey" ? .large : .peek
     @State private var sheetDragging = false
+    @State private var overviewTrigger = 0
     /// Stable per-appearance anchor for the banner's state derivation — the activity's
     /// own start time is private to the model and never set in demo mode.
     @State private var appearedAt = Date()
@@ -26,8 +28,10 @@ struct LiveJourneyView: View {
         ZStack(alignment: .bottom) {
             JourneyMapView(
                 journey: model.selectedJourney,
+                framing: .navigation,
                 activeLegID: model.selectedJourney?.activeLeg(at: now)?.id,
-                bottomInset: bottomContentHeight
+                bottomInset: max(0, bottomContentHeight - Theme.Spacing.l),
+                overviewTrigger: overviewTrigger
             )
 
             if let journey = model.selectedJourney {
@@ -37,7 +41,7 @@ struct LiveJourneyView: View {
                         withAnimation(SheetPhysics.spring) { bottomContentHeight = height }
                     },
                     onDragChanged: { sheetDragging = $0 },
-                    peek: { header(journey) },
+                    peek: { bar(journey) },
                     more: {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 0) {
@@ -52,16 +56,26 @@ struct LiveJourneyView: View {
                             }
                             .padding(.horizontal, Theme.Spacing.m)
                         }
+                        // The card slides through the home-indicator zone below the peek
+                        // cut; without this gap the first leg row bleeds into that zone
+                        // at rest.
+                        .padding(.top, Theme.Spacing.xl)
                         .scrollIndicators(.hidden)
                         // Sheet drags at medium, list scrolls at large — same split as Home.
                         .scrollDisabled(sheetDetent != .large)
                         .frame(maxHeight: 520)
                     }
                 )
+                // Sunk into the home-indicator zone the way Google's bar is — the Exit
+                // pill still clears the indicator itself, and the map inset above
+                // compensates so the recenter button keeps hugging the sheet.
+                .offset(y: Theme.Spacing.l)
             }
         }
+        .background(SwipeBackEnabler().allowsHitTesting(false))
         .safeAreaInset(edge: .top, spacing: 0) { topBanner }
-        // The banner replaces the navigation bar — its back chevron is the way home.
+        // No navigation bar: swipe-back (SwipeBackEnabler) and the bar's Exit pill
+        // are the ways home.
         .toolbar(.hidden, for: .navigationBar)
         // A leg transition is the one moment worth a physical nudge mid-journey.
         .sensoryFeedback(.impact(weight: .medium), trigger: model.selectedJourney?.activeLeg(at: now)?.id)
@@ -87,26 +101,55 @@ struct LiveJourneyView: View {
                journey: journey, destinationName: destination.name,
                startedAt: appearedAt, now: now
            ) {
-            JourneyBannerView(model: .make(state: state, now: now), onBack: { dismiss() })
+            JourneyBannerView(model: .make(state: state, now: now))
         }
     }
 
-    private func header(_ journey: Journey) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            if let arrival = journey.arrival {
-                Text("Arrive \(TimeDisplay.clock.string(from: arrival))")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(Theme.Colors.textPrimary)
-            }
-            if let duration = TimeDisplay.durationLabel(seconds: journey.duration.map(Int.init)) {
-                let count = journey.transitLegs.count
-                let leave = journey.departure.map { "Leave \(TimeDisplay.clock.string(from: $0)) · " } ?? ""
-                Text("\(leave)\(duration) · \(count) service\(count == 1 ? "" : "s")")
+    /// Google's navigation bar: the time that matters big on the left, the ways to
+    /// step back — overview and Exit — on the right.
+    private func bar(_ journey: Journey) -> some View {
+        HStack(spacing: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: 2) {
+                if let remaining = TimeDisplay.remainingLabel(until: journey.arrival, now: now) {
+                    Text(remaining)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                        .contentTransition(.numericText())
+                }
+                Text(barDetail(journey))
                     .font(.footnote)
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
+            Spacer(minLength: Theme.Spacing.s)
+            Button {
+                overviewTrigger += 1
+            } label: {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Theme.Colors.surface))
+            }
+            .buttonStyle(.plain)
+            Button {
+                dismiss()
+            } label: {
+                Text("Exit")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, Theme.Spacing.l)
+                    .frame(height: 44)
+                    .background(Capsule().fill(Theme.Colors.veryLate))
+            }
+            .buttonStyle(.plain)
         }
-        .padding(.bottom, Theme.Spacing.s)
+    }
+
+    private func barDetail(_ journey: Journey) -> String {
+        let count = journey.transitLegs.count
+        let services = "\(count) service\(count == 1 ? "" : "s")"
+        guard let arrival = journey.arrival else { return services }
+        return "Arrive \(TimeDisplay.clock.string(from: arrival)) · \(services)"
     }
 
     private func nextLegIndex(_ journey: Journey) -> Int? {

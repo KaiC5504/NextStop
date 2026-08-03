@@ -31,6 +31,9 @@ enum Theme {
     enum Radius {
         static let card: CGFloat = 28
         static let pill: CGFloat = 12
+        /// Between pill and card: the floating banner is smaller than a sheet but
+        /// rounder than a badge.
+        static let banner: CGFloat = 20
     }
 }
 

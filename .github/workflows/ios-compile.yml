@@ -60,7 +60,7 @@ jobs:
           # sits over every screenshot taken later on the same simulator.
           xcrun simctl privacy "$UDID" grant location com.kaichuan.nextstop || echo "location grant failed"
           xcrun simctl privacy "$UDID" grant location-always com.kaichuan.nextstop || echo "location-always grant failed"
-          xcrun simctl location "$UDID" set -33.8688,151.2093 || echo "location set failed"
+          xcrun simctl location "$UDID" set -33.7952,151.1789 || echo "location set failed"
 
       - name: Build for simulator
         run: |
@@ -104,7 +104,7 @@ jobs:
           # recent runner images; granting again now the app exists actually sticks.
           xcrun simctl privacy "$UDID" grant location com.kaichuan.nextstop || echo "post-install location grant failed"
           mkdir -p shots
-          for screen in home search settings layouts options medium journey; do
+          for screen in home search settings layouts options medium journey walk; do
             xcrun simctl terminate "$UDID" com.kaichuan.nextstop 2>/dev/null || true
             sleep 3
             echo "--- launching $screen ---"
