@@ -30,7 +30,7 @@ struct LiveJourneyView: View {
                 journey: model.selectedJourney,
                 framing: .navigation,
                 activeLegID: model.selectedJourney?.activeLeg(at: now)?.id,
-                bottomInset: bottomContentHeight,
+                bottomInset: max(0, bottomContentHeight - Theme.Spacing.l),
                 overviewTrigger: overviewTrigger
             )
 
@@ -56,9 +56,9 @@ struct LiveJourneyView: View {
                             }
                             .padding(.horizontal, Theme.Spacing.m)
                         }
-                        // The peek cut sits at the safe-area line while the card keeps
-                        // sliding through the home-indicator zone below it; without this
-                        // gap the first leg row bleeds into that zone at rest.
+                        // The card slides through the home-indicator zone below the peek
+                        // cut; without this gap the first leg row bleeds into that zone
+                        // at rest.
                         .padding(.top, Theme.Spacing.xl)
                         .scrollIndicators(.hidden)
                         // Sheet drags at medium, list scrolls at large — same split as Home.
@@ -66,6 +66,10 @@ struct LiveJourneyView: View {
                         .frame(maxHeight: 520)
                     }
                 )
+                // Sunk into the home-indicator zone the way Google's bar is — the Exit
+                // pill still clears the indicator itself, and the map inset above
+                // compensates so the recenter button keeps hugging the sheet.
+                .offset(y: Theme.Spacing.l)
             }
         }
         .background(SwipeBackEnabler().allowsHitTesting(false))
